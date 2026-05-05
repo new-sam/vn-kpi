@@ -1,0 +1,3005 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VN KPI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #fafaf9;
+      --card: #ffffff;
+      --border: #ececea;
+      --border-strong: #d6d6d3;
+      --ink: #18181b;
+      --ink-soft: #52525b;
+      --ink-muted: #a1a1aa;
+      --accent: #18181b;
+      --green: #16a34a;
+      --amber: #d97706;
+      --red: #dc2626;
+    }
+    html, body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.01em;
+    }
+    .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+    .hairline { border-color: var(--border); }
+    .hairline-strong { border-color: var(--border-strong); }
+    .ink-soft { color: var(--ink-soft); }
+    .ink-muted { color: var(--ink-muted); }
+
+    /* Tab */
+    .tab { color: var(--ink-muted); padding: 14px 0; border-bottom: 2px solid transparent; transition: all .15s; cursor: pointer; }
+    .tab:hover { color: var(--ink-soft); }
+    .tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+
+    /* Progress */
+    .bar { background: #f0f0ee; border-radius: 999px; overflow: hidden; }
+    .bar > span { display: block; height: 100%; background: var(--ink); border-radius: 999px; transition: width .4s; }
+    .bar.warn > span { background: var(--amber); }
+    .bar.danger > span { background: var(--red); }
+    .bar.ok > span { background: var(--green); }
+
+    /* Pill */
+    .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+
+    /* Row hover */
+    .row { transition: background .12s; }
+    .row:hover { background: #f5f5f4; }
+
+    /* Editable cell */
+    .cell-edit { cursor: text; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; transition: background .12s, box-shadow .12s; }
+    .cell-edit:hover { background: white; box-shadow: 0 0 0 1px var(--border-strong) inset; }
+    .cell-edit:has(.pill):hover { box-shadow: none; background: transparent; }
+    .cell-edit:has(.pill) { cursor: pointer; }
+
+    /* Emoji picker */
+    .emoji-btn { display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:6px; font-size:16px; line-height:1; transition: background .12s, box-shadow .12s; cursor:pointer; }
+    .emoji-btn:hover { background: var(--surface); }
+    .emoji-btn.selected { background: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+
+    /* Inline button */
+    .ghost-btn { color: var(--ink-soft); border: 1px dashed var(--border-strong); border-radius: 8px; padding: 10px 14px; font-size: 13px; width: 100%; text-align: left; transition: all .15s; }
+    .ghost-btn:hover { color: var(--ink); border-color: var(--ink); border-style: solid; background: white; }
+
+    /* Details */
+    details { border-top: 1px solid var(--border); }
+    details:last-child { border-bottom: 1px solid var(--border); }
+    details > summary { list-style: none; cursor: pointer; padding: 14px 4px; display: flex; align-items: center; gap: 12px; }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary:hover { background: #f5f5f4; }
+    details[open] > summary { background: #f5f5f4; }
+    .chev { transition: transform .15s; color: var(--ink-muted); display: inline-block; }
+    details[open] > summary .chev { transform: rotate(90deg); }
+
+    /* Nested details (months → projects) */
+    .month-list details, .proj-list details { border-top: 0; border-bottom: 0; }
+    .month-list summary, .proj-list summary { padding: 0; display: block; background: transparent; }
+    .month-list summary:hover, .proj-list summary:hover { background: transparent; }
+    .month-list details[open] > summary, .proj-list details[open] > summary { background: transparent; }
+
+    /* Section */
+    .section-label { font-size: 11px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    /* Hide content of inactive tab */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Project cards: kill the global details borders */
+    .project-list > details { border-top: 0; }
+    .project-list > details:last-child { border-bottom: 0; }
+    .project-list > details > summary { padding: 0; }
+    .project-list > details > summary:hover { background: transparent; }
+    .project-list > details[open] > summary { background: transparent; }
+
+    /* Subtask timeline marker */
+    .tl-marker { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: #18181b; }
+    .tl-marker::before { content: ''; position: absolute; top: -3px; left: -2px; width: 5px; height: 5px; border-radius: 50%; background: #18181b; }
+
+    /* Input ring */
+    input:focus, textarea:focus, select:focus { outline: none; box-shadow: 0 0 0 2px #18181b14; border-color: var(--ink); }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Login screen (Supabase 모드일 때만 표시) -->
+  <div id="loginScreen" class="fixed inset-0 z-50 bg-white items-center justify-center" style="display:none;">
+    <form id="loginForm" class="w-80 space-y-3 p-6">
+      <div class="text-center mb-4">
+        <div class="w-10 h-10 mx-auto rounded-lg bg-zinc-900 text-white text-sm font-bold flex items-center justify-center mb-3">V</div>
+        <h2 class="text-lg font-semibold">VN KPI 로그인</h2>
+        <p class="text-xs ink-muted mt-1">사내 이메일 + 비밀번호</p>
+      </div>
+      <input name="email" type="email" placeholder="이메일 (예: kee@likelion.net)" required autocomplete="email"
+             class="w-full text-sm border hairline rounded-md px-3 py-2.5" />
+      <input name="password" type="password" placeholder="비밀번호" required autocomplete="current-password"
+             class="w-full text-sm border hairline rounded-md px-3 py-2.5" />
+      <button type="submit" class="w-full text-sm bg-zinc-900 text-white rounded-md py-2.5 hover:bg-zinc-800 font-medium">로그인</button>
+      <div id="loginError" class="hidden text-xs text-red-600 text-center"></div>
+      <div class="text-xs ink-muted text-center pt-2 border-t hairline mt-3">
+        초기 비번: <code class="bg-zinc-100 px-1 rounded">vnkpi2026!</code> · 로그인 후 변경 가능
+      </div>
+      <div id="loginSetupHint" class="hidden text-xs ink-muted text-center pt-2">
+        Supabase 미설정
+      </div>
+    </form>
+  </div>
+
+
+  <!-- Header -->
+  <header class="border-b hairline">
+    <div class="max-w-[840px] mx-auto px-6 h-14 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-6 h-6 rounded-md bg-zinc-900 flex items-center justify-center text-white text-[11px] font-bold">V</div>
+        <span class="text-sm font-semibold">VN KPI</span>
+        <span class="text-xs ink-muted ml-2" id="navYearWeek">2026 · W18</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-xs ink-muted" id="userEmail"></span>
+        <span class="pill bg-zinc-100 text-zinc-700 text-[10px]" id="userRole"></span>
+        <button id="accountBtn" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1.5 rounded-md hover:bg-zinc-100" title="내 계정">내 계정</button>
+        <button id="logoutBtn" class="text-xs ink-soft hover:text-red-600 px-2 py-1.5 rounded-md hover:bg-red-50" title="로그아웃">로그아웃</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Account modal -->
+  <div id="accountModal" class="fixed inset-0 z-40 bg-black/30 items-center justify-center" style="display:none;">
+    <div class="bg-white rounded-lg w-96 p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-semibold">내 계정</h3>
+        <button id="accountClose" class="text-zinc-500 hover:text-zinc-900 text-xl leading-none">&times;</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs ink-muted block mb-1">이름</label>
+          <div class="flex gap-2">
+            <input id="acctName" type="text" class="flex-1 text-sm border hairline rounded-md px-3 py-2" />
+            <button id="acctNameSave" class="text-xs bg-zinc-900 text-white rounded-md px-3 hover:bg-zinc-800">저장</button>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs ink-muted block mb-1">이메일</label>
+          <div class="flex gap-2">
+            <input id="acctEmail" type="email" class="flex-1 text-sm border hairline rounded-md px-3 py-2" />
+            <button id="acctEmailSave" class="text-xs bg-zinc-900 text-white rounded-md px-3 hover:bg-zinc-800">변경</button>
+          </div>
+          <p class="text-[10px] ink-muted mt-1">변경 시 새 이메일 확인 링크가 발송될 수 있음</p>
+        </div>
+        <div class="border-t hairline pt-3">
+          <label class="text-xs ink-muted block mb-1">새 비밀번호</label>
+          <div class="flex gap-2">
+            <input id="acctPwd" type="password" placeholder="6자 이상" minlength="6" class="flex-1 text-sm border hairline rounded-md px-3 py-2" />
+            <button id="acctPwdSave" class="text-xs bg-zinc-900 text-white rounded-md px-3 hover:bg-zinc-800">변경</button>
+          </div>
+        </div>
+        <div id="acctMsg" class="hidden text-xs text-center rounded p-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <nav class="border-b hairline">
+    <div class="max-w-[840px] mx-auto px-6 flex items-center gap-7">
+      <div class="tab active" data-tab="ktc">
+        KTC 매칭 <span class="ink-muted tnum text-xs ml-1" id="tabKtcBadge">47/200</span>
+      </div>
+      <div class="tab" data-tab="biz">
+        신사업 <span class="ink-muted tnum text-xs ml-1" id="tabBizBadge">₩0/5M</span>
+      </div>
+      <div class="tab" data-tab="community">
+        커뮤니티 <span class="ink-muted tnum text-xs ml-1" id="tabCommBadge">0/0</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-[840px] mx-auto px-6 py-12">
+
+    <!-- ==================== KTC PANEL ==================== -->
+    <section class="panel active" data-panel="ktc">
+
+      <!-- Hero: Year at a glance -->
+      <div class="mb-12">
+        <div class="flex items-center justify-between mb-4">
+          <div class="section-label">매칭 달성 현황</div>
+          <div class="text-xs ink-muted">2026 · 연간 목표 <span id="annualTargetEdit" class="cell-edit tnum" title="클릭하여 수정">200</span>명</div>
+        </div>
+        <div class="grid grid-cols-3 gap-6 items-start">
+          <!-- 연간 누적 -->
+          <div>
+            <div class="text-[11px] ink-muted mb-1">연간 누적</div>
+            <div class="flex items-baseline gap-2">
+              <span class="text-4xl font-semibold tnum tracking-tight" id="ktcAnnualNum">0</span>
+              <span class="text-lg ink-muted tnum">/ <span id="ktcAnnualTarget">200</span></span>
+            </div>
+            <div class="mt-2"><span class="pill bg-zinc-100 text-zinc-600" id="ktcGapPill">연간 달성률 0%</span></div>
+          </div>
+          <!-- 이번 달 -->
+          <div class="border-l hairline pl-6">
+            <div class="text-[11px] ink-muted mb-1">이번 달 <span id="ktcMonthNo">—월</span></div>
+            <div class="flex items-baseline gap-2">
+              <span class="text-4xl font-semibold tnum tracking-tight" id="ktcMonthVal">0</span>
+              <span class="text-lg ink-muted tnum">/ <span id="ktcMonthTarget">0</span></span>
+            </div>
+            <div class="mt-2"><span class="pill bg-zinc-100 text-zinc-600" id="ktcMonthPill">이번 달 달성률 0%</span></div>
+          </div>
+          <!-- 이번 주 -->
+          <div class="border-l hairline pl-6">
+            <div class="text-[11px] ink-muted mb-1">이번 주 <span id="ktcWeekNo">W—</span> <span id="ktcWeekRange"></span></div>
+            <div class="flex items-baseline gap-2">
+              <span class="text-4xl font-semibold tnum tracking-tight" id="ktcWeekVal">0</span>
+              <span class="text-lg ink-muted tnum">/ <span id="ktcWeekTarget">0</span></span>
+            </div>
+            <div class="mt-2"><span class="pill bg-zinc-100 text-zinc-600" id="ktcWeekPill">이번 주 달성률 0%</span></div>
+          </div>
+        </div>
+
+
+        <!-- Cumulative chart: target vs actual -->
+        <div class="mt-7">
+          <svg viewBox="0 0 520 210" class="w-full" preserveAspectRatio="none" style="height: 210px;">
+            <!-- horizontal grid -->
+            <g stroke="#ececea" stroke-width="0.6">
+              <line x1="40" y1="170" x2="520" y2="170"/>
+              <line x1="40" y1="132.5" x2="520" y2="132.5"/>
+              <line x1="40" y1="95" x2="520" y2="95"/>
+              <line x1="40" y1="57.5" x2="520" y2="57.5"/>
+              <line x1="40" y1="20" x2="520" y2="20"/>
+            </g>
+            <!-- y labels -->
+            <g font-size="9" fill="#a1a1aa" text-anchor="end" font-family="Pretendard">
+              <text x="34" y="173">0</text>
+              <text x="34" y="135">50</text>
+              <text x="34" y="98">100</text>
+              <text x="34" y="60">150</text>
+              <text x="34" y="23">200</text>
+            </g>
+            <!-- target + actual lines drawn by JS based on projectStart -->
+            <g id="chart-target"></g>
+            <g id="chart-actual"></g>
+            <text x="516" y="22" font-size="9" fill="#a1a1aa" text-anchor="end" font-family="Pretendard">목표 200</text>
+            <!-- month labels -->
+            <g font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Pretendard">
+              <text x="60" y="200">1월</text>
+              <text x="100" y="200">2월</text>
+              <text x="140" y="200">3월</text>
+              <text x="180" y="200">4월</text>
+              <text x="220" y="200">5월</text>
+              <text x="260" y="200">6월</text>
+              <text x="300" y="200">7월</text>
+              <text x="340" y="200">8월</text>
+              <text x="380" y="200">9월</text>
+              <text x="420" y="200">10월</text>
+              <text x="460" y="200">11월</text>
+              <text x="500" y="200">12월</text>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Legend -->
+        <div class="mt-3 flex items-center justify-between text-xs">
+          <div class="flex items-center gap-4 ink-muted">
+            <span class="flex items-center gap-1.5"><span class="block w-4 h-px bg-zinc-900" style="height: 2px;"></span>실적</span>
+            <span class="flex items-center gap-1.5"><span class="block w-4 border-t border-dashed border-zinc-400"></span>목표</span>
+          </div>
+          <div class="ink-muted" id="chartSummary">데이터 없음</div>
+        </div>
+      </div>
+
+      <!-- Weekly tracker (drill-down) -->
+      <div class="mb-10">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">월별 · 주차별 상세</div>
+          <button id="targetEditBtn" onclick="document.getElementById('target-editor').classList.toggle('hidden')" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100 flex items-center gap-1 hidden">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            목표 편집
+          </button>
+        </div>
+
+        <!-- Target Editor (collapsible admin panel) -->
+        <form id="target-editor" class="hidden mb-3 p-5 bg-white border hairline rounded-lg" onsubmit="return false">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="text-sm font-medium">월별 · 주차별 목표 인원</div>
+              <div class="text-[11px] ink-muted mt-0.5">월 클릭으로 펼치기 · 주차 입력 / 빈 값은 0</div>
+            </div>
+            <div class="flex gap-1.5">
+              <button type="button" data-preset="even" class="text-[11px] px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200">균등 분배</button>
+              <button type="button" data-preset="zero" class="text-[11px] px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200">전부 0</button>
+            </div>
+          </div>
+          <div id="targetEditorGrid" class="space-y-3">
+            <!-- rendered by JS -->
+          </div>
+          <div class="flex items-center justify-between mt-5 pt-4 border-t hairline">
+            <div class="text-xs">
+              합계 <span class="font-semibold tnum" id="targetSumVal">0</span><span class="ink-muted">명</span>
+              <span class="ml-2 pill bg-zinc-100 text-zinc-700" id="targetSumPill">목표 200 (-200)</span>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" onclick="document.getElementById('target-editor').classList.add('hidden')" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100">취소</button>
+              <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800">저장</button>
+            </div>
+          </div>
+        </form>
+
+        <div class="bg-white border hairline rounded-lg overflow-hidden" id="weeklyList">
+          <!-- rendered by JS -->
+        </div>
+        <div class="flex items-center justify-between mt-2 px-1">
+          <button class="text-xs ink-muted hover:text-zinc-900">← 이전 분기</button>
+          <button class="text-xs ink-soft hover:text-zinc-900">전체 52주 보기 →</button>
+        </div>
+      </div>
+
+      <!-- Recent list (with inline + at bottom) -->
+      <div class="mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">최근 매칭</div>
+          <span class="text-xs ink-soft" id="recentMatchCount">최근 0건</span>
+        </div>
+        <div class="bg-white border hairline rounded-lg overflow-hidden" id="recentMatches">
+          <!-- rendered by JS, inline + at bottom -->
+        </div>
+        <div class="text-[10px] ink-muted mt-2 px-1">각 항목 (날짜 · 이름 · 기업 · 직무 · 소스 · 단계) 더블클릭 → 인풋으로 바뀝니다 · Enter 저장 · Esc 취소</div>
+      </div>
+
+      <!-- Match form (opens when inline + clicked) -->
+      <form id="match-form" class="hidden mb-12 p-4 bg-white border hairline rounded-lg space-y-3" onsubmit="return false">
+        <div class="text-xs font-medium mb-2">새 매칭 추가</div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <input name="name" placeholder="인재 이름 *" required class="text-sm border hairline rounded-md px-3 py-2" />
+          <input name="company" placeholder="기업명 *" required class="text-sm border hairline rounded-md px-3 py-2" />
+          <input name="role" placeholder="직무" class="text-sm border hairline rounded-md px-3 py-2" />
+          <input name="date" type="date" class="text-sm border hairline rounded-md px-3 py-2" />
+          <select name="source" class="text-sm border hairline rounded-md px-3 py-2">
+            <option value="웍스피어">소스: 웍스피어 (리드)</option>
+            <option value="자체발굴">소스: 자체 발굴 (리드 X)</option>
+          </select>
+          <select name="stage" class="text-sm border hairline rounded-md px-3 py-2">
+            <option value="lead">단계: 리드</option>
+            <option value="submitted">단계: 서류 통과</option>
+            <option value="interview">단계: 인터뷰</option>
+            <option value="confirmed">단계: 확정 매칭</option>
+            <option value="dropped">단계: 드롭</option>
+          </select>
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+          <button type="button" class="text-xs ink-soft px-3 py-1.5 rounded-md hover:bg-zinc-100" onclick="document.getElementById('match-form').classList.add('hidden')">취소</button>
+          <button type="submit" class="text-xs bg-zinc-900 text-white px-3 py-1.5 rounded-md hover:bg-zinc-800">저장 ⏎</button>
+        </div>
+      </form>
+
+      <!-- Core 3 metrics -->
+      <details class="border-t hairline" open>
+        <summary class="py-4 flex items-center gap-2 text-sm font-medium">
+          <span class="chev">›</span> 핵심 지표
+          <span class="ink-muted text-xs font-normal ml-1">리드 · 최종 매칭률 · 기업당 매칭</span>
+        </summary>
+        <div class="pb-6 pt-2 grid grid-cols-3 gap-4">
+
+          <!-- 1. 리드 -->
+          <div class="p-4 rounded-lg border hairline bg-white">
+            <div class="text-xs ink-muted mb-1">리드</div>
+            <div class="text-[10px] ink-muted mb-3">웍스피어가 데려온 기업</div>
+            <div class="text-3xl font-semibold tnum"><span id="metricLeads">0</span><span class="text-base ink-muted ml-1">개사</span></div>
+            <div class="text-[11px] ink-muted mt-2" id="metricLeadsDetail">웍스피어 인입 누적</div>
+          </div>
+
+          <!-- 2. 최종 매칭률 -->
+          <div class="p-4 rounded-lg border hairline bg-white">
+            <div class="text-xs ink-muted mb-1">최종 매칭률</div>
+            <div class="text-[10px] ink-muted mb-3">매칭 ÷ 리드</div>
+            <div class="text-3xl font-semibold tnum text-emerald-600"><span id="metricMatchRate">0</span><span class="text-base">%</span></div>
+            <div class="bar mt-2" style="height: 3px"><span id="metricMatchRateBar" style="width: 0%; background: #10b981;"></span></div>
+            <div class="text-[11px] ink-muted mt-2" id="metricMatchRateDetail">0 / 0 · 목표 33%</div>
+          </div>
+
+          <!-- 3. 기업당 매칭 -->
+          <div class="p-4 rounded-lg border hairline bg-white">
+            <div class="text-xs ink-muted mb-1">기업당 매칭</div>
+            <div class="text-[10px] ink-muted mb-3">매칭 ÷ 매칭 성사 기업</div>
+            <div class="text-3xl font-semibold tnum"><span id="metricPerCompany">0</span><span class="text-base ink-muted ml-1">명</span></div>
+            <div class="text-[11px] ink-muted mt-2" id="metricPerCompanyDetail">0매칭 / 0기업</div>
+          </div>
+
+        </div>
+      </details>
+
+    </section>
+
+    <!-- ==================== 신사업 PANEL ==================== -->
+    <section class="panel" data-panel="biz">
+
+      <!-- Annual Hero -->
+      <!-- Monthly gauge hero -->
+      <div class="mb-8 bg-white border hairline rounded-xl p-6">
+        <div class="flex items-end justify-between mb-3">
+          <div>
+            <div class="text-xs ink-muted mb-1" id="bizMonthLabel">이번 달 매출</div>
+            <div class="flex items-baseline gap-2">
+              <span class="text-5xl font-semibold tnum tracking-tight">₩<span id="bizMonthValNum">0</span></span>
+              <span class="text-xl ink-muted tnum">/ <span id="bizMonthTargetNum">5M</span></span>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-xs ink-muted mb-1" id="bizMonthDday">D—</div>
+            <div class="text-3xl font-bold tnum" id="bizMonthPctNum">0%</div>
+          </div>
+        </div>
+        <!-- Big horizontal gauge -->
+        <div class="h-3 bg-zinc-100 rounded-full overflow-hidden">
+          <div id="bizMonthGauge" class="h-full bg-emerald-500 rounded-full transition-all" style="width: 0%"></div>
+        </div>
+        <!-- Annual mini -->
+        <div class="flex items-center justify-between mt-3 text-[11px] ink-muted">
+          <span>연간 누적 <span class="tnum text-zinc-700"><span id="bizAnnualNum">0</span>M</span> / <span class="tnum"><span id="bizAnnualTargetNum">60M</span></span></span>
+          <span class="pill bg-zinc-100 text-zinc-600 text-[10px]" id="bizGapPill">연간 0%</span>
+        </div>
+      </div>
+
+      <!-- Monthly list (annual view) -->
+      <div class="mb-10">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label" id="monthListLabel">월별 시도</div>
+          <div class="text-[11px] ink-muted" id="monthListMeta"></div>
+        </div>
+        <div class="month-list bg-white border hairline rounded-lg overflow-hidden" id="monthList">
+          <!-- rendered by JS -->
+        </div>
+      </div>
+
+
+      <!-- Hidden project form (triggered by inline + buttons) -->
+      <form id="project-form" class="hidden mb-6 p-4 bg-white border hairline rounded-lg space-y-3" onsubmit="return false">
+        <div class="text-xs font-medium ink-muted mb-1">신사업 추가</div>
+        <!-- Emoji picker -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-[11px] ink-muted mr-1">아이콘</span>
+          <div id="emojiPicker" class="flex items-center gap-1 flex-wrap"></div>
+          <input id="customEmoji" type="text" maxlength="2" placeholder="✏️" class="w-8 h-8 text-center text-base border hairline rounded-md" title="직접 입력" />
+        </div>
+        <input name="icon" type="hidden" value="✨" />
+        <div class="space-y-2.5">
+          <!-- 1. 정의 -->
+          <input name="name" placeholder="프로젝트명 (예: VN 한인가게 결제 마케팅 솔루션)" required class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+
+          <!-- 2. 가설 블록 -->
+          <div class="bg-zinc-50/50 border hairline rounded-md p-2.5 space-y-2">
+            <div class="text-[11px] font-medium ink-muted">가설 검증</div>
+            <input name="customer_segment" placeholder="타겟 고객 (예: VN 거주 한인 외식업 사장)" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+            <textarea name="hypothesis" placeholder="가설 (예: 월 3만원 결제 도구를 도입하면 한 달에 30곳 유료 전환 가능)" rows="2" class="text-sm border hairline rounded-md px-3 py-2 w-full"></textarea>
+            <input name="success_metric" placeholder="검증 지표 (예: 유료 전환 24곳 / 한 달간)" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+          </div>
+
+          <!-- 3. 일정 + 책임 -->
+          <div class="grid grid-cols-3 gap-2">
+            <label class="block">
+              <span class="text-[10px] ink-muted block mb-0.5">담당자</span>
+              <input name="owner" type="text" placeholder="이름 (예: 남영훈)" list="ownerSuggest" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+              <datalist id="ownerSuggest">
+                <option value="남영훈"></option>
+                <option value="김호현"></option>
+                <option value="튀띤"></option>
+                <option value="이정애"></option>
+                <option value="김슬기"></option>
+              </datalist>
+            </label>
+            <label class="block">
+              <span class="text-[10px] ink-muted block mb-0.5">시작일</span>
+              <input name="start_date" type="date" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+            </label>
+            <label class="block">
+              <span class="text-[10px] ink-muted block mb-0.5">마감일</span>
+              <input name="deadline" type="date" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+            </label>
+          </div>
+
+          <!-- 4. 목표 -->
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">목표 매출 (원)</span>
+            <input name="target" type="number" value="1000000" class="text-sm border hairline rounded-md px-3 py-2 w-full tnum" />
+          </label>
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+          <button type="button" class="text-xs ink-soft px-3 py-1.5 rounded-md hover:bg-zinc-100" onclick="document.getElementById('project-form').classList.add('hidden')">취소</button>
+          <button type="submit" class="text-xs bg-zinc-900 text-white px-3 py-1.5 rounded-md hover:bg-zinc-800">등록 ⏎</button>
+        </div>
+      </form>
+
+    </section>
+
+    <!-- ════════ 커뮤니티 (소셜미디어) ════════ -->
+    <section class="panel" data-panel="community">
+      <!-- Hero: 전체 팔로워 게이지 -->
+      <div class="mb-8 bg-white border hairline rounded-xl p-6">
+        <div class="flex items-end justify-between mb-3">
+          <div>
+            <div class="text-xs ink-muted mb-1">전체 팔로워</div>
+            <div class="flex items-baseline gap-2">
+              <span class="text-5xl font-semibold tnum tracking-tight" id="commTotalNum">0</span>
+              <span class="text-xl ink-muted tnum">/ <span id="commTotalTarget">0</span></span>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="text-xs ink-muted mb-1">이번 주 증가 <span id="commWeekDelta" class="ink-soft">+0</span></div>
+            <div class="text-3xl font-bold tnum" id="commTotalPct">0%</div>
+          </div>
+        </div>
+        <div class="h-3 bg-zinc-100 rounded-full overflow-hidden">
+          <div id="commTotalGauge" class="h-full bg-emerald-500 rounded-full transition-all" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- 채널 카드 -->
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">채널</div>
+          <button id="addChannelBtn" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100">+ 채널 추가</button>
+        </div>
+        <div id="commChannels" class="grid grid-cols-2 gap-3"></div>
+      </div>
+
+      <!-- 주차별 팔로워 트래커 -->
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">주차별 팔로워 추이</div>
+          <button id="commTrackerEditBtn" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100 hidden">주차별 입력</button>
+        </div>
+        <div class="bg-white border hairline rounded-lg p-4">
+          <svg id="commChart" viewBox="0 0 520 180" class="w-full" preserveAspectRatio="none" style="height: 180px;"></svg>
+          <div class="text-[10px] ink-muted mt-2 text-center" id="commChartLabel">주차별 합계 팔로워</div>
+        </div>
+        <form id="commTrackerForm" class="hidden mt-3 p-4 bg-white border hairline rounded-lg" onsubmit="return false">
+          <div class="text-xs font-medium mb-2">주차별 팔로워 (현재 주: <span id="commTrackerCurWeek">—</span>)</div>
+          <div id="commTrackerInputs" class="space-y-2"></div>
+          <div class="flex justify-end gap-2 mt-3 pt-3 border-t hairline">
+            <button type="button" id="commTrackerCancel" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100">취소</button>
+            <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800">저장</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 컨텐츠 그리드 (이번 달) -->
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-3">
+          <div class="section-label">이번 달 콘텐츠 (<span id="commGridMonth">5</span>월)</div>
+          <div class="text-[11px] ink-muted" id="commGridMeta">0/9 발행</div>
+        </div>
+        <div id="commGrid" class="grid grid-cols-3 gap-1.5 bg-white border hairline rounded-lg p-2"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 채널 추가 modal -->
+  <div id="channelModal" class="fixed inset-0 z-40 bg-black/30 items-center justify-center" style="display:none;">
+    <form id="channelForm" class="bg-white rounded-lg w-96 p-6 space-y-3" onsubmit="return false">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-semibold">채널 추가</h3>
+        <button id="channelClose" type="button" class="text-zinc-500 hover:text-zinc-900 text-xl leading-none">&times;</button>
+      </div>
+      <div class="space-y-2">
+        <label class="block">
+          <span class="text-[10px] ink-muted block mb-0.5">이름</span>
+          <input name="name" type="text" required placeholder="예: VN 인스타그램" class="w-full text-sm border hairline rounded-md px-3 py-2" />
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">플랫폼</span>
+            <select name="platform" class="w-full text-sm border hairline rounded-md px-3 py-2">
+              <option value="instagram">📸 Instagram</option>
+              <option value="facebook">📘 Facebook</option>
+              <option value="tiktok">🎵 TikTok</option>
+              <option value="youtube">📺 YouTube</option>
+              <option value="threads">🧵 Threads</option>
+              <option value="other">📱 기타</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">@핸들</span>
+            <input name="handle" type="text" placeholder="@likelion_vn" class="w-full text-sm border hairline rounded-md px-3 py-2" />
+          </label>
+        </div>
+        <label class="block">
+          <span class="text-[10px] ink-muted block mb-0.5">URL</span>
+          <input name="url" type="url" placeholder="https://www.instagram.com/..." class="w-full text-sm border hairline rounded-md px-3 py-2" />
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">현재 팔로워</span>
+            <input name="current_followers" type="number" min="0" value="0" class="w-full text-sm border hairline rounded-md px-3 py-2 tnum" />
+          </label>
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">목표 팔로워</span>
+            <input name="target_followers" type="number" min="0" value="1000" class="w-full text-sm border hairline rounded-md px-3 py-2 tnum" />
+          </label>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" id="channelCancel" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100">취소</button>
+        <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800">추가</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 콘텐츠 입력 modal -->
+  <div id="postModal" class="fixed inset-0 z-40 bg-black/30 items-center justify-center" style="display:none;">
+    <form id="postForm" class="bg-white rounded-lg w-[480px] p-6 space-y-3" onsubmit="return false">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-semibold">콘텐츠 <span id="postModalSlot" class="ink-muted text-sm">슬롯 1</span></h3>
+        <button id="postClose" type="button" class="text-zinc-500 hover:text-zinc-900 text-xl leading-none">&times;</button>
+      </div>
+      <input name="postId" type="hidden" />
+      <input name="slot" type="hidden" />
+      <div class="space-y-2">
+        <label class="block">
+          <span class="text-[10px] ink-muted block mb-0.5">제목</span>
+          <input name="title" type="text" placeholder="콘텐츠 제목" class="w-full text-sm border hairline rounded-md px-3 py-2" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] ink-muted block mb-0.5">캡션 / 메모</span>
+          <textarea name="caption" rows="2" placeholder="설명·해시태그·기획 메모" class="w-full text-sm border hairline rounded-md px-3 py-2"></textarea>
+        </label>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">채널</span>
+            <select name="channel" class="w-full text-sm border hairline rounded-md px-3 py-2">
+              <option value="">—</option>
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+              <option value="tiktok">TikTok</option>
+              <option value="all">전 채널</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">발행일</span>
+            <input name="scheduled_date" type="date" class="w-full text-sm border hairline rounded-md px-3 py-2" />
+          </label>
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">상태</span>
+            <select name="status" class="w-full text-sm border hairline rounded-md px-3 py-2">
+              <option value="planned">계획</option>
+              <option value="shooting">촬영</option>
+              <option value="editing">편집</option>
+              <option value="scheduled">예약</option>
+              <option value="published">발행</option>
+              <option value="cancelled">취소</option>
+            </select>
+          </label>
+        </div>
+        <label class="block">
+          <span class="text-[10px] ink-muted block mb-0.5">담당자</span>
+          <input name="owner" type="text" list="ownerSuggest" placeholder="이름" class="w-full text-sm border hairline rounded-md px-3 py-2" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] ink-muted block mb-0.5">썸네일 URL (선택)</span>
+          <input name="thumbnail_url" type="url" placeholder="https://..." class="w-full text-sm border hairline rounded-md px-3 py-2" />
+        </label>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">발행 URL</span>
+            <input name="url" type="url" placeholder="https://..." class="col-span-2 w-full text-sm border hairline rounded-md px-3 py-2" />
+          </label>
+          <label class="block">
+            <span class="text-[10px] ink-muted block mb-0.5">좋아요</span>
+            <input name="likes" type="number" min="0" value="0" class="w-full text-sm border hairline rounded-md px-3 py-2 tnum" />
+          </label>
+        </div>
+      </div>
+      <div class="flex justify-between pt-3 border-t hairline">
+        <button type="button" id="postDelete" class="text-xs ink-soft hover:text-red-600">삭제</button>
+        <div class="flex gap-2">
+          <button type="button" id="postCancel" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100">취소</button>
+          <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800">저장</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  <script>
+  (function(){
+    // ════════════════════════════════════════════════════════════
+    // SUPABASE 설정 — 본인 프로젝트 값으로 교체하세요 (SETUP.md 참조)
+    // ════════════════════════════════════════════════════════════
+    const SUPABASE_URL = 'https://sznpbgkkctmeaundzwls.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_XDlJXQlvPHb8-lqIKR86hw_gp7-HM0u';
+    // ════════════════════════════════════════════════════════════
+
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+    const uid = () => Math.random().toString(36).slice(2,9);
+    const escapeHtml = s => String(s||'').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+    const dateDiff = (a, b) => Math.floor((new Date(b) - new Date(a))/86400000);
+    const fmtDate = d => d.slice(5).replace('-','/');
+    const fmtMoney = n => {
+      if (Math.abs(n) >= 1_000_000) return '₩' + (n/1_000_000).toFixed(n%1_000_000===0?0:1) + 'M';
+      if (Math.abs(n) >= 1_000) return '₩' + Math.round(n/1_000) + 'K';
+      return '₩' + n;
+    };
+
+    function isoWeek(date) {
+      const d = new Date(date);
+      d.setHours(0,0,0,0);
+      d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+      const yearStart = new Date(d.getFullYear(), 0, 1);
+      return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+    }
+    function weekRange(date) {
+      const d = new Date(date);
+      const day = d.getDay() || 7;
+      const monday = new Date(d); monday.setDate(d.getDate() - day + 1);
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      const fmt = x => x.toISOString().slice(0,10);
+      return { start: fmt(monday), end: fmt(sunday) };
+    }
+    function weekRangeOf(year, week) {
+      // Monday of given ISO week
+      const jan4 = new Date(year, 0, 4);
+      const jan4Day = jan4.getDay() || 7;
+      const week1Mon = new Date(jan4);
+      week1Mon.setDate(jan4.getDate() - jan4Day + 1);
+      const monday = new Date(week1Mon);
+      monday.setDate(week1Mon.getDate() + (week - 1) * 7);
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      const fmt = x => x.toISOString().slice(0,10);
+      return { start: fmt(monday), end: fmt(sunday) };
+    }
+
+    // ────────────────────────────────────────────
+    // STATE
+    // ────────────────────────────────────────────
+    function emptyState() {
+      const today = new Date().toISOString().slice(0,10);
+      return {
+        user: null, profile: null,
+        today, year: new Date().getFullYear(),
+        currentWeek: isoWeek(today),
+        weekRange: weekRange(today),
+        currentMonth: new Date().getMonth() + 1,
+        projectStart: `${new Date().getFullYear()}-04-01`,
+        annualMatchTarget: 200,
+        monthTarget: 5000000,
+        weekTargets: {},
+        monthRevenueTargets: {},
+        matches: [], projects: [], monthArchive: {},
+        channels: [], followersHistory: {}, posts: []
+      };
+    }
+
+    // 샘플 데모 (Supabase 미설정 시 로컬에서 보여주는 데이터)
+    function sampleSeed() {
+      const s = emptyState();
+      s.today = '2026-05-01';
+      s.year = 2026;
+      s.currentWeek = 18;
+      s.weekRange = { start: '2026-04-27', end: '2026-05-03' };
+      s.currentMonth = 5;
+      s.projectStart = '2026-04-01';
+      s.profile = { role: 'admin', name: '로컬' };
+      const wt = {};
+      for (let w = 14; w <= 52; w++) wt[w] = 5;
+      s.weekTargets = wt;
+      s.monthArchive = { '2026-01': 0, '2026-02': 0, '2026-03': 0, '2026-04': 0 };
+      s.matches = [
+        { id:uid(), date:'2026-04-02', name:'후보자 1 (수정 필요)', company:'지노시스',          role:'(직무 수정)', source:'웍스피어', stage:'confirmed' },
+        { id:uid(), date:'2026-04-08', name:'후보자 2 (수정 필요)', company:'지노시스',          role:'(직무 수정)', source:'웍스피어', stage:'confirmed' },
+        { id:uid(), date:'2026-04-10', name:'후보자 3 (수정 필요)', company:'로맨',              role:'(직무 수정)', source:'웍스피어', stage:'confirmed' },
+        { id:uid(), date:'2026-04-15', name:'후보자 4 (수정 필요)', company:'디에프코퍼레이션',  role:'(직무 수정)', source:'웍스피어', stage:'confirmed' },
+        { id:uid(), date:'2026-04-17', name:'후보자 5 (수정 필요)', company:'메타이노텍',        role:'(직무 수정)', source:'웍스피어', stage:'confirmed' },
+        { id:uid(), date:'2026-04-22', name:'후보자 6 (수정 필요)', company:'시드랩',            role:'(직무 수정)', source:'웍스피어', stage:'confirmed' },
+        { id:uid(), date:'2026-04-24', name:'후보자 7 (수정 필요)', company:'기업명 미정 1',     role:'(직무 수정)', source:'웍스피어', stage:'confirmed' },
+        { id:uid(), date:'2026-04-26', name:'후보자 8 (수정 필요)', company:'기업명 미정 2',     role:'(직무 수정)', source:'웍스피어', stage:'confirmed' }
+      ];
+      return s;
+    }
+
+    let state = emptyState();
+    const LOCAL_STORE = 'vn-kpi-local';
+    function save() {
+      if (LOCAL_MODE) { try { localStorage.setItem(LOCAL_STORE, JSON.stringify(state)); } catch(e){} }
+    }
+    function isAdmin() { return state.profile && (state.profile.role === 'admin' || state.profile.role === 'manager'); }
+
+    // ────────────────────────────────────────────
+    // SUPABASE / LOCAL 모드 구분
+    // ────────────────────────────────────────────
+    const SUPABASE_READY = SUPABASE_URL && !SUPABASE_URL.startsWith('PASTE') && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.startsWith('PASTE');
+    const LOCAL_MODE = !SUPABASE_READY;
+    let sb = null;
+    if (SUPABASE_READY && window.supabase) {
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          storage: window.localStorage,
+          storageKey: 'vnkpi-auth'
+        }
+      });
+    }
+
+    async function fetchAll() {
+      if (!sb || !state.user) return;
+      const [matchesRes, projectsRes, weekTargetsRes, monthArchiveRes, settingsRes, mrtRes, channelsRes, followersRes, postsRes] = await Promise.all([
+        sb.from('matches').select('*').order('date', { ascending: false }),
+        sb.from('projects').select('*'),
+        sb.from('week_targets').select('*'),
+        sb.from('month_archive').select('*'),
+        sb.from('settings').select('*').single(),
+        sb.from('month_revenue_targets').select('*'),
+        sb.from('community_channels').select('*').order('sort_order'),
+        sb.from('community_followers_history').select('*'),
+        sb.from('community_posts').select('*')
+      ]);
+      state.matches = (matchesRes.data || []);
+      state.projects = (projectsRes.data || []).map(p => ({
+        ...p,
+        target: p.target_revenue,
+        actual: p.actual_revenue,
+        subtasks: Array.isArray(p.subtasks) ? p.subtasks : []
+      }));
+      const wt = {};
+      (weekTargetsRes.data || []).forEach(r => { if (r.year === state.year) wt[r.week] = r.target; });
+      state.weekTargets = wt;
+      const ma = {};
+      (monthArchiveRes.data || []).forEach(r => { ma[`${r.year}-${String(r.month).padStart(2,'0')}`] = r.revenue; });
+      state.monthArchive = ma;
+      const mrt = {};
+      (mrtRes.data || []).forEach(r => {
+        if (!mrt[r.year]) mrt[r.year] = {};
+        mrt[r.year][r.month] = r.target_revenue;
+      });
+      state.monthRevenueTargets = mrt;
+      if (settingsRes.data) {
+        state.annualMatchTarget = settingsRes.data.annual_match_target || 200;
+        state.monthTarget = settingsRes.data.month_target || 5000000;
+        state.projectStart = settingsRes.data.project_start || `${state.year}-04-01`;
+      }
+      state.channels = (channelsRes.data || []);
+      const fh = {};
+      (followersRes.data || []).forEach(r => {
+        if (!fh[r.channel_id]) fh[r.channel_id] = {};
+        if (!fh[r.channel_id][r.year]) fh[r.channel_id][r.year] = {};
+        fh[r.channel_id][r.year][r.week] = r.count;
+      });
+      state.followersHistory = fh;
+      state.posts = (postsRes.data || []);
+    }
+
+    function monthRevenueTarget(year, month) {
+      return state.monthRevenueTargets?.[year]?.[month] ?? state.monthTarget ?? 5000000;
+    }
+    function annualRevenueTarget(year) {
+      let total = 0;
+      for (let m = 1; m <= 12; m++) total += monthRevenueTarget(year, m);
+      return total;
+    }
+    async function saveMonthRevenueTarget(year, month, target) {
+      if (!isAdmin()) { alert('어드민/매니저만 목표 편집 가능'); return false; }
+      if (sb && state.user) {
+        const { error } = await sb.from('month_revenue_targets').upsert({ year, month, target_revenue: target }, { onConflict: 'year,month' });
+        if (error) { alert('실패: ' + error.message); return false; }
+      }
+      if (!state.monthRevenueTargets[year]) state.monthRevenueTargets[year] = {};
+      state.monthRevenueTargets[year][month] = target;
+      save();
+      return true;
+    }
+    async function saveSetting(key, value) {
+      if (!isAdmin()) { alert('어드민/매니저만 편집 가능'); return false; }
+      if (sb && state.user) {
+        const { error } = await sb.from('settings').update({ [key]: value, updated_at: new Date().toISOString() }).eq('id', 1);
+        if (error) { alert('실패: ' + error.message); return false; }
+      }
+      const local = { annual_match_target: 'annualMatchTarget', month_target: 'monthTarget', project_start: 'projectStart' };
+      if (local[key]) state[local[key]] = value;
+      save();
+      return true;
+    }
+
+    async function fetchProfile(user) {
+      const { data } = await sb.from('profiles').select('*').eq('id', user.id).single();
+      state.profile = data;
+    }
+
+    let realtimeChan = null;
+    function subscribeRealtime() {
+      if (!sb || realtimeChan) return;
+      realtimeChan = sb.channel('vn-kpi-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => fetchAll().then(renderAllPreserve))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => fetchAll().then(renderAllPreserve))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'week_targets' }, () => fetchAll().then(renderAllPreserve))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'month_archive' }, () => fetchAll().then(renderAllPreserve))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => fetchAll().then(renderAllPreserve))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'month_revenue_targets' }, () => fetchAll().then(renderAllPreserve))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'community_channels' }, () => fetchAll().then(renderAllPreserve))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'community_followers_history' }, () => fetchAll().then(renderAllPreserve))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'community_posts' }, () => fetchAll().then(renderAllPreserve))
+        .subscribe();
+    }
+
+    async function login(email, password) {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      state.user = data.user;
+      await fetchProfile(data.user);
+      await fetchAll();
+      $('#loginScreen').style.display = 'none';
+      $('#userEmail').textContent = data.user.email;
+      $('#userRole').textContent = state.profile?.role || 'member';
+      subscribeRealtime();
+      renderAll();
+    }
+
+
+    async function logout() {
+      if (sb) await sb.auth.signOut();
+      state.user = null;
+      state.profile = null;
+      location.reload();
+    }
+
+    async function checkSession() {
+      if (!sb) return null;
+      const { data: { session } } = await sb.auth.getSession();
+      if (session && session.user) {
+        state.user = session.user;
+        await fetchProfile(session.user);
+        $('#userEmail').textContent = session.user.email;
+        $('#userRole').textContent = state.profile?.role || 'member';
+        return session.user;
+      }
+      return null;
+    }
+
+    // 실제 달력과 자동 연동: 페이지 로드/탭 포커스 시 today/주/월 갱신
+    function syncCalendar() {
+      const now = new Date();
+      const tz = now.getTimezoneOffset() * 60000;
+      const todayStr = new Date(now - tz).toISOString().slice(0,10);
+      state.today = todayStr;
+      state.currentWeek = isoWeek(todayStr);
+      state.weekRange = weekRange(todayStr);
+      state.currentMonth = now.getMonth() + 1;
+      // state.year은 유지 (연도 전환은 별도 처리 필요)
+    }
+    syncCalendar();
+    // 탭이 다시 활성화되면 자동 갱신 (자정 넘어 주/월 바뀌었을 때)
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) { syncCalendar(); renderAll(); }
+    });
+
+    // Computed (all derived from state.matches)
+    const matchesYear = () => state.matches.filter(m => m.date.startsWith(String(state.year)));
+    const annualMatches = () => matchesYear().filter(m => m.stage === 'confirmed').length;  // 200명 카운트 (소스 무관)
+    const yearLeads = () => matchesYear().filter(m => m.source === '웍스피어').length;       // 리드 분모 (웍스피어만)
+    const wspConfirmed = () => matchesYear().filter(m => m.source === '웍스피어' && m.stage === 'confirmed').length;  // 전환율 분자
+    const yearMatchedCompanies = () => new Set(matchesYear().filter(m => m.stage === 'confirmed').map(m => m.company)).size;
+    const matchRate = () => yearLeads() ? +(wspConfirmed()/yearLeads()*100).toFixed(1) : 0;  // 웍스피어 funnel only
+    const perCompany = () => yearMatchedCompanies() ? +(annualMatches()/yearMatchedCompanies()).toFixed(1) : 0;
+
+    function weekDataFor(w) {
+      const data = { submitted: 0, interview: 0, confirmed: 0, lead: 0, dropped: 0 };
+      state.matches.forEach(m => {
+        if (!m.date.startsWith(String(state.year))) return;
+        if (isoWeek(m.date) !== w) return;
+        if (data[m.stage] !== undefined) data[m.stage]++;
+      });
+      return data;
+    }
+    const weekTarget = w => state.weekTargets[w] || 0;
+
+    // 이번 달 목표 = 그 주의 월요일이 해당 월에 속한 주차들의 weekTarget 합
+    function monthTargetFor(year, month) {
+      let total = 0;
+      for (let w = 1; w <= 53; w++) {
+        const r = weekRangeOf(year, w);
+        const monMonth = parseInt(r.start.slice(5,7), 10);
+        const monYear = parseInt(r.start.slice(0,4), 10);
+        if (monYear === year && monMonth === month) total += weekTarget(w);
+      }
+      return total;
+    }
+
+    function monthMatchesConfirmed(year, month) {
+      const ym = `${year}-${String(month).padStart(2,'0')}`;
+      return state.matches.filter(m => m.stage === 'confirmed' && m.date && m.date.startsWith(ym)).length;
+    }
+    const paceTarget = () => {
+      let s = 0;
+      for (let w = 1; w <= state.currentWeek; w++) s += weekTarget(w);
+      return s;
+    };
+
+    const monthBizRev = () => state.projects.filter(p => p.year===state.year && p.month===state.currentMonth).reduce((s,p) => s+(p.actual||0), 0);
+    const annualBizRev = () => Object.values(state.monthArchive).reduce((a,b)=>a+b, 0) + monthBizRev();
+
+    function dDay(deadline) {
+      const days = dateDiff(state.today, deadline);
+      if (days === 0) return 'D-day';
+      if (days < 0) return `+${-days}일 지남`;
+      return `D-${days}`;
+    }
+
+    const SUBTASK_STATUSES = [
+      ['todo',     '대기',   'zinc'],
+      ['doing',    '진행중', 'blue'],
+      ['blocked',  '차단',   'red'],
+      ['on_hold',  '보류',   'amber'],
+      ['done',     '완료',   'emerald'],
+    ];
+
+    function subtaskTimeline(s) {
+      const total = dateDiff(s.start, s.end);
+      const elapsed = dateDiff(s.start, state.today);
+      const timePct = total > 0 ? Math.max(0, Math.min(100, elapsed/total*100)) : 0;
+      const progress = s.done ? 100 : (s.progress||0);
+      // 명시적 상태 우선
+      const explicit = s.done ? 'done' : (s.status || 'todo');
+      const meta = SUBTASK_STATUSES.find(([v]) => v === explicit) || SUBTASK_STATUSES[0];
+      let label = meta[1];
+      const color = meta[2];
+      // 일정 지연 경고 (진행중인 것만)
+      if (explicit === 'doing') {
+        const gap = progress - timePct;
+        if (gap < -15) label = `⚠ ${label}`;
+      }
+      return { timePct, progress, status: label, statusKey: explicit, color };
+    }
+
+    function stagePill(stage) {
+      const map = {
+        confirmed: ['bg-emerald-50 text-emerald-700', '확정'],
+        interview: ['bg-amber-50 text-amber-700', '인터뷰'],
+        submitted: ['bg-blue-50 text-blue-700', '서류'],
+        lead: ['bg-zinc-100 text-zinc-700', '리드'],
+        dropped: ['bg-zinc-100 text-zinc-500', '드롭']
+      };
+      const v = map[stage] || ['bg-zinc-100 text-zinc-500', stage];
+      return `<span class="pill ${v[0]}">${v[1]}</span>`;
+    }
+
+    // ---------- RENDER ----------
+    function wireInlineSettingEdits() {
+      // 연간 매칭 목표 200 클릭 → 인라인 편집 (어드민/매니저만)
+      const annualEdit = $('#annualTargetEdit');
+      if (annualEdit && !annualEdit.dataset.wired) {
+        annualEdit.dataset.wired = '1';
+        annualEdit.addEventListener('click', e => {
+          if (!isAdmin()) return;
+          if (annualEdit.querySelector('input')) return;
+          const cur = state.annualMatchTarget;
+          const input = document.createElement('input');
+          input.type = 'number'; input.min = '1'; input.value = cur;
+          input.className = 'border hairline rounded px-1 py-0.5 text-xs w-16 tnum';
+          annualEdit.textContent = '';
+          annualEdit.appendChild(input);
+          input.focus({ preventScroll: true }); input.select();
+          let done = false;
+          const commit = async () => {
+            if (done) return; done = true;
+            const n = parseInt(input.value, 10);
+            if (!isNaN(n) && n > 0 && n !== cur) {
+              await saveSetting('annual_match_target', n);
+            }
+            renderAllPreserve();
+          };
+          input.addEventListener('blur', commit);
+          input.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+            if (ev.key === 'Escape') { ev.preventDefault(); done = true; renderAllPreserve(); }
+          });
+        });
+      }
+    }
+
+    function renderKTCHero() {
+      // 권한 기반 UI 토글
+      const targetBtn = $('#targetEditBtn');
+      if (targetBtn) targetBtn.classList.toggle('hidden', !isAdmin());
+      wireInlineSettingEdits();
+
+      const total = annualMatches();
+      const target = state.annualMatchTarget;
+      $('#ktcAnnualNum').textContent = total;
+      $('#ktcAnnualTarget').textContent = target;
+      const annualEdit = $('#annualTargetEdit');
+      if (annualEdit && annualEdit.textContent !== String(target) && !annualEdit.querySelector('input')) {
+        annualEdit.textContent = target;
+      }
+      $('#tabKtcBadge').textContent = `${total}/${target}`;
+      const navYW = $('#navYearWeek');
+      if (navYW) navYW.textContent = `${state.year} · W${state.currentWeek}`;
+
+      // ── 연간 달성률 pill ──
+      const annualPill = $('#ktcGapPill');
+      const annualPct = state.annualMatchTarget
+        ? Math.round(total / state.annualMatchTarget * 100)
+        : 0;
+      annualPill.textContent = `연간 달성률 ${annualPct}%`;
+      const elapsedPct = state.currentWeek / 52 * 100;
+      let acls;
+      if (annualPct >= elapsedPct) acls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+      else if (annualPct >= elapsedPct * 0.75) acls = 'bg-amber-50 text-amber-700 border border-amber-200';
+      else acls = 'bg-red-50 text-red-700 border border-red-200';
+      annualPill.className = `pill ${acls}`;
+      annualPill.title = `현재 ${total}명 / 연간 목표 ${state.annualMatchTarget}명 · 시간 경과 ${Math.round(elapsedPct)}% (${state.currentWeek}/52주차)`;
+
+      // ── 이번 달 ──
+      const cm = state.currentMonth;
+      const cmTarget = monthTargetFor(state.year, cm);
+      const cmDone = monthMatchesConfirmed(state.year, cm);
+      $('#ktcMonthVal').textContent = cmDone;
+      $('#ktcMonthTarget').textContent = cmTarget;
+      $('#ktcMonthNo').textContent = `${cm}월`;
+      const monthPill = $('#ktcMonthPill');
+      if (cmTarget === 0) {
+        monthPill.textContent = '이번 달 목표 미설정';
+        monthPill.className = 'pill bg-zinc-100 text-zinc-600';
+      } else {
+        const mPct = Math.round(cmDone / cmTarget * 100);
+        monthPill.textContent = `이번 달 달성률 ${mPct}%`;
+        let mcls;
+        if (mPct >= 100) mcls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        else if (mPct >= 75) mcls = 'bg-amber-50 text-amber-700 border border-amber-200';
+        else mcls = 'bg-red-50 text-red-700 border border-red-200';
+        monthPill.className = `pill ${mcls}`;
+        monthPill.title = `${cm}월 ${cmDone}명 / 목표 ${cmTarget}명`;
+      }
+
+      // ── 이번 주 ──
+      const cwData = weekDataFor(state.currentWeek);
+      const cwTarget = weekTarget(state.currentWeek);
+      const cwDone = cwData.confirmed;
+      $('#ktcWeekVal').textContent = cwDone;
+      $('#ktcWeekTarget').textContent = cwTarget;
+      $('#ktcWeekNo').textContent = `W${state.currentWeek}`;
+      const wkRange = $('#ktcWeekRange');
+      if (wkRange) {
+        const s = state.weekRange.start.slice(5).replace('-','/');
+        const e = state.weekRange.end.slice(5).replace('-','/');
+        wkRange.innerHTML = `<span class="ink-muted">(${s}—${e})</span>`;
+      }
+      // ── 이번 주 달성률 pill ──
+      const weekPill = $('#ktcWeekPill');
+      if (cwTarget === 0) {
+        weekPill.textContent = '이번 주 목표 미설정';
+        weekPill.className = 'pill bg-zinc-100 text-zinc-600';
+      } else {
+        const wPct = Math.round(cwDone / cwTarget * 100);
+        weekPill.textContent = `이번 주 달성률 ${wPct}%`;
+        let wcls;
+        if (wPct >= 100) wcls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+        else if (wPct >= 75) wcls = 'bg-amber-50 text-amber-700 border border-amber-200';
+        else wcls = 'bg-red-50 text-red-700 border border-red-200';
+        weekPill.className = `pill ${wcls}`;
+        weekPill.title = `이번 주 ${cwDone}명 / 목표 ${cwTarget}명`;
+      }
+
+      // Chart
+      renderChart();
+    }
+
+    function renderChart() {
+      const ga = $('#chart-actual');
+      const gt = $('#chart-target');
+      if (!ga) return;
+      // Project start week
+      const projStart = state.projectStart || `${state.year}-01-01`;
+      const startW = isoWeek(projStart);
+      const startX = 40 + (startW - 1) * (480/52);
+      // Target line: from (startX, 170) to (520, 20)
+      if (gt) {
+        gt.innerHTML = `
+          <line x1="${startX.toFixed(1)}" y1="170" x2="520" y2="20" stroke="#a1a1aa" stroke-width="1.5" stroke-dasharray="5,4"/>
+          ${startW > 1 ? `<line x1="${startX.toFixed(1)}" y1="20" x2="${startX.toFixed(1)}" y2="180" stroke="#a1a1aa" stroke-width="0.6" stroke-dasharray="2,2" opacity="0.5"/>
+          <text x="${startX.toFixed(1)}" y="14" font-size="9" fill="#52525b" text-anchor="middle" font-family="Pretendard">프로젝트 시작</text>` : ''}
+        `;
+      }
+      // Cumulative actual from projectStart week
+      const points = [`${startX.toFixed(1)},170`];
+      let cum = 0;
+      for (let w = startW; w <= state.currentWeek; w++) {
+        cum += weekDataFor(w).confirmed;
+        const x = 40 + w * (480/52);
+        const y = 170 - Math.min(cum, 200) * (150/200);
+        points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+      }
+      const summary = $('#chartSummary');
+      if (cum === 0) {
+        ga.innerHTML = '';
+        if (summary) summary.textContent = '아직 데이터 없음';
+        return;
+      }
+      const lastX = 40 + state.currentWeek * (480/52);
+      const lastY = 170 - Math.min(cum, 200) * (150/200);
+      ga.innerHTML = `
+        <polyline fill="none" stroke="#18181b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${points.join(' ')}"/>
+        <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="5" fill="#18181b" fill-opacity="0.12"/>
+        <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3" fill="#18181b"/>
+        <text x="${(lastX-6).toFixed(1)}" y="${(lastY-6).toFixed(1)}" font-size="10" fill="#18181b" text-anchor="end" font-weight="600" font-family="Pretendard">${cum}</text>
+      `;
+      if (summary) {
+        const annualPct = state.annualMatchTarget ? Math.round(cum/state.annualMatchTarget*100) : 0;
+        summary.innerHTML = `누적 <span class="font-medium">${cum}명</span> · 연간 달성률 <span class="font-medium">${annualPct}%</span> <span class="ink-muted">(연간 목표 ${state.annualMatchTarget}명)</span>`;
+      }
+    }
+
+    function renderWeeklyList() {
+      const list = $('#weeklyList');
+      if (!list) return;
+      const cw = state.currentWeek;
+      const start = Math.max(1, cw - 4);
+      const end = Math.min(52, cw + 3);
+      const rows = [];
+      for (let w = start; w <= end; w++) {
+        rows.push(weeklyRow(w, w === cw, w === end));
+      }
+      list.innerHTML = rows.join('');
+    }
+
+    function weeklyRow(w, isCurrent, isLast) {
+      const data = weekDataFor(w);
+      const target = weekTarget(w);
+      const done = data.confirmed;
+      const pct = target > 0 ? Math.round(done/target*100) : 0;
+      const range = weekRangeOf(state.year, w);
+      // 프로젝트 시작 주는 시작일을 표시 (W14의 3/30 대신 4/1)
+      const projStart = state.projectStart;
+      let displayMonday = range.start;
+      if (projStart && range.start < projStart && range.end >= projStart) {
+        displayMonday = projStart;
+      }
+      const startMD = displayMonday.slice(5).replace('-','/');
+      const endMD = range.end.slice(5).replace('-','/');
+      const isPast = w < state.currentWeek;
+      const isFuture = w > state.currentWeek;
+
+      let barCls = 'bar';
+      if (target > 0 && pct >= 100) barCls = 'bar ok';
+      else if (target > 0 && pct >= 75) barCls = 'bar warn';
+      else if (target > 0 && pct < 75 && isPast) barCls = 'bar danger';
+
+      let pctTxt, pctCls;
+      if (target === 0 && done === 0) { pctTxt = '—'; pctCls = 'ink-muted'; }
+      else if (pct >= 100) { pctTxt = `${pct}%`; pctCls = 'text-emerald-600'; }
+      else if (pct >= 75) { pctTxt = `${pct}%`; pctCls = 'text-amber-600'; }
+      else { pctTxt = `${pct}%`; pctCls = 'text-red-600'; }
+
+      const rangeStr = `${displayMonday.slice(5).replace('-','/')} — ${endMD}`;
+      const barWidth = target > 0 ? Math.min(100, pct) : 0;
+
+      if (isCurrent) {
+        return `
+          <div class="px-4 py-4" style="background: #fafaf6; border-left: 3px solid var(--ink); padding-left: 13px; border-top: 1px solid var(--border-strong); border-bottom: 1px solid var(--border-strong);">
+            <div class="grid items-center gap-3" style="grid-template-columns: 90px 1fr 56px 48px;">
+              <div>
+                <div class="text-sm font-bold tnum">W${w}</div>
+                <div class="text-[10px] ink-soft tnum mt-0.5">${rangeStr} · 이번 주</div>
+              </div>
+              <div class="bar" style="height: 8px"><span style="width: ${barWidth}%"></span></div>
+              <div class="text-right text-base font-medium tnum">${done}<span class="ink-muted text-sm font-normal">/${target}</span></div>
+              <div class="text-right text-sm font-bold tnum">${pctTxt === '—' ? '—' : pctTxt}</div>
+            </div>
+            <div class="mt-2 text-[11px] ink-muted">
+              <span class="ink-soft">이번 주 진행</span> ·
+              서류 <span class="tnum font-medium">${data.submitted}</span> ·
+              인터뷰 <span class="tnum font-medium">${data.interview}</span> ·
+              확정 <span class="tnum font-medium">${data.confirmed}</span>
+            </div>
+          </div>`;
+      }
+
+      const opacity = isFuture ? 'opacity-30' : 'opacity-65';
+      const borderCls = isLast ? '' : 'border-b hairline';
+      return `
+        <div class="grid items-center gap-3 px-4 py-2 ${borderCls} ${opacity}" style="grid-template-columns: 90px 1fr 56px 48px;">
+          <div class="text-xs">
+            <span class="tnum ink-muted">W${w}</span>
+            <span class="text-[10px] ink-muted ml-1 tnum">${startMD}</span>
+          </div>
+          <div class="${barCls}" style="height: 4px"><span style="width: ${barWidth}%"></span></div>
+          <div class="text-right text-xs ink-soft tnum">${target === 0 && done === 0 ? '—' : `${done}/${target}`}</div>
+          <div class="text-right text-xs tnum ${pctCls}">${pctTxt}</div>
+        </div>`;
+    }
+
+    function weekToMonth(year, week) {
+      const r = weekRangeOf(year, week);
+      const monYear = parseInt(r.start.slice(0,4), 10);
+      const monMonth = parseInt(r.start.slice(5,7), 10);
+      if (monYear < year) return 1;
+      if (monYear > year) return 12;
+      return monMonth;
+    }
+
+    function renderTargetEditor() {
+      const grid = $('#targetEditorGrid');
+      if (!grid) return;
+
+      // Group weeks by month
+      const monthsMap = {};
+      for (let w = 1; w <= 53; w++) {
+        const m = weekToMonth(state.year, w);
+        if (!monthsMap[m]) monthsMap[m] = [];
+        monthsMap[m].push(w);
+      }
+
+      const cm = state.currentMonth;
+      const blocks = [];
+      for (let m = 1; m <= 12; m++) {
+        const weeks = monthsMap[m] || [];
+        if (weeks.length === 0) continue;
+        let mSum = 0;
+        weeks.forEach(w => mSum += weekTarget(w));
+        const isCur = m === cm;
+        const weekRows = weeks.map(w => {
+          const r = weekRangeOf(state.year, w);
+          const v = weekTarget(w);
+          const startStr = r.start.slice(5).replace('-','/');
+          const endStr = r.end.slice(5).replace('-','/');
+          const isCurW = w === state.currentWeek;
+          return `
+            <div class="grid items-center gap-2 px-3 py-1.5 border-t hairline ${isCurW ? 'bg-zinc-900/[0.04]' : ''}" style="grid-template-columns: 44px 110px 1fr 64px;">
+              <div class="text-xs ${isCurW ? 'font-bold' : 'ink-soft'}">W${w}</div>
+              <div class="text-[10px] ink-muted tnum">${startStr} ~ ${endStr}</div>
+              <div></div>
+              <input type="number" min="0" data-week="${w}" data-month="${m}" value="${v}" class="border hairline rounded text-center py-1 text-xs tnum ${isCurW ? 'border-zinc-900 ring-1 ring-zinc-900' : ''}" />
+            </div>`;
+        }).join('');
+
+        blocks.push(`
+          <details ${isCur ? 'open' : ''} class="border hairline rounded-md overflow-hidden ${isCur ? 'border-zinc-900' : ''}">
+            <summary class="px-3 py-2.5 cursor-pointer flex items-center gap-3 ${isCur ? 'bg-zinc-50' : 'hover:bg-zinc-50/40'}">
+              <span class="chev text-xs">›</span>
+              <div class="flex-1 flex items-baseline gap-2">
+                <span class="text-sm font-medium">${m}월</span>
+                ${isCur ? '<span class="pill bg-zinc-900 text-white text-[9px]">이번 달</span>' : ''}
+                <span class="text-[10px] ink-muted">${weeks.length}주 (W${weeks[0]}~W${weeks[weeks.length-1]})</span>
+              </div>
+              <div class="text-right">
+                <span class="font-bold tnum text-sm" data-msum="${m}">${mSum}</span>
+                <span class="ink-muted text-xs">명</span>
+              </div>
+            </summary>
+            <div class="bg-white">${weekRows}</div>
+          </details>
+        `);
+      }
+
+      grid.className = 'space-y-2';
+      grid.innerHTML = blocks.join('');
+
+      // Total + month sums
+      const recalc = () => {
+        let total = 0;
+        const monthSums = {};
+        $$('#targetEditorGrid input[data-week]').forEach(x => {
+          const v = parseInt(x.value, 10) || 0;
+          total += v;
+          const mm = parseInt(x.dataset.month, 10);
+          monthSums[mm] = (monthSums[mm] || 0) + v;
+        });
+        $('#targetSumVal').textContent = total;
+        const diff = total - state.annualMatchTarget;
+        const pill = $('#targetSumPill');
+        pill.textContent = diff === 0 ? `목표 ${state.annualMatchTarget} ✓` : `목표 ${state.annualMatchTarget} (${diff>0?'+':''}${diff})`;
+        pill.className = `ml-2 pill ${diff === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-700'}`;
+        Object.keys(monthSums).forEach(m => {
+          const el = grid.querySelector(`[data-msum="${m}"]`);
+          if (el) el.textContent = monthSums[m];
+        });
+      };
+      recalc();
+
+      $$('#targetEditorGrid input[data-week]').forEach(inp => {
+        inp.addEventListener('input', recalc);
+      });
+    }
+
+    function renderMetrics() {
+      $('#metricLeads').textContent = yearLeads();
+      $('#metricMatchRate').textContent = matchRate();
+      $('#metricMatchRateBar').style.width = `${matchRate()}%`;
+      $('#metricMatchRateDetail').textContent = `${annualMatches()} / ${yearLeads()} · 목표 33%`;
+      $('#metricPerCompany').textContent = perCompany();
+      $('#metricPerCompanyDetail').textContent = `${annualMatches()}매칭 / ${yearMatchedCompanies()}기업`;
+    }
+
+    function sourcePill(source) {
+      if (source === '웍스피어') return '<span class="pill bg-indigo-50 text-indigo-700">웍스피어</span>';
+      if (source === '자체발굴') return '<span class="pill bg-zinc-100 text-zinc-600">자체 발굴</span>';
+      return `<span class="pill bg-zinc-100 text-zinc-500">${escapeHtml(source||'?')}</span>`;
+    }
+
+    const STAGE_OPTIONS = [
+      ['lead', '리드'],
+      ['submitted', '서류 통과'],
+      ['interview', '인터뷰'],
+      ['confirmed', '확정 매칭'],
+      ['dropped', '드롭']
+    ];
+    const SOURCE_OPTIONS = [
+      ['웍스피어', '웍스피어'],
+      ['자체발굴', '자체 발굴']
+    ];
+
+    function renderRecentMatches() {
+      const list = $('#recentMatches');
+      if (!list) return;
+      const recent = [...state.matches].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 10);
+      const cols = 'grid-template-columns: 56px 1.2fr 1.2fr 80px 70px 22px;';
+      const head = `
+        <div class="grid items-center gap-2 px-4 py-2 text-[10px] ink-muted uppercase tracking-wide border-b hairline bg-zinc-50/40" style="${cols}">
+          <div>날짜</div>
+          <div>인재 이름</div>
+          <div>기업 · 직무</div>
+          <div>소스</div>
+          <div class="text-right">단계</div>
+          <div></div>
+        </div>`;
+      const rows = recent.map((m, i) => {
+        const lastCls = (i === recent.length - 1) ? 'border-b hairline' : 'border-b hairline';
+        return `
+          <div class="row grid items-center gap-2 px-4 py-2.5 text-sm hover:bg-zinc-50 ${lastCls}" data-match-id="${m.id}" style="${cols}">
+            <div data-cell="date" class="cell-edit ink-muted text-xs tnum" title="클릭하여 수정">${fmtDate(m.date)}</div>
+            <div data-cell="name" class="cell-edit font-medium truncate" title="클릭하여 수정">${escapeHtml(m.name)}</div>
+            <div class="ink-soft truncate flex gap-1 min-w-0">
+              <span data-cell="company" class="cell-edit truncate" title="클릭하여 수정">${escapeHtml(m.company)}</span>
+              <span class="ink-muted shrink-0">·</span>
+              <span data-cell="role" class="cell-edit truncate" title="클릭하여 수정">${escapeHtml(m.role||'—')}</span>
+            </div>
+            <div data-cell="source" class="cell-edit" title="클릭하여 수정">${sourcePill(m.source)}</div>
+            <div data-cell="stage" class="cell-edit text-right" title="클릭하여 수정">${stagePill(m.stage)}</div>
+            <button data-delete-match="${m.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="삭제">✕</button>
+          </div>`;
+      }).join('');
+      const empty = recent.length === 0
+        ? '<div class="px-4 py-6 text-center text-xs ink-muted">아직 매칭이 없어요</div>'
+        : '';
+      const addRow = `
+        <div class="px-4 py-2.5 text-xs text-center cursor-pointer ink-muted hover:text-zinc-900 hover:bg-zinc-50 select-none" id="addMatchInline">
+          <span class="font-medium">+</span> 매칭 추가
+        </div>`;
+      list.innerHTML = head + empty + rows + addRow;
+      $('#recentMatchCount').textContent = recent.length === 0
+        ? `0건`
+        : `최근 ${recent.length}건 / 전체 ${state.matches.length}건`;
+      // wire delete
+      $$('[data-delete-match]').forEach(btn => btn.addEventListener('click', e => {
+        e.stopPropagation();
+        deleteMatch(btn.dataset.deleteMatch);
+      }));
+      // wire single-click edit on cells
+      $$('#recentMatches [data-cell]').forEach(cell => {
+        cell.addEventListener('click', e => {
+          if (cell.querySelector('input, select')) return; // 이미 편집중
+          e.stopPropagation();
+          const row = cell.closest('[data-match-id]');
+          if (!row) return;
+          enableCellEdit(cell, row.dataset.matchId, cell.dataset.cell);
+        });
+      });
+      // wire inline + add
+      const addBtn = $('#addMatchInline');
+      if (addBtn) addBtn.addEventListener('click', () => {
+        const form = $('#match-form');
+        form.classList.remove('hidden');
+        const first = form.querySelector('input[name="name"]');
+        if (first) first.focus();
+        form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      });
+    }
+
+    function enableCellEdit(cell, mid, field) {
+      if (cell.querySelector('input, select')) return;
+      const m = state.matches.find(x => x.id === mid);
+      if (!m) return;
+      const original = m[field] != null ? String(m[field]) : '';
+      let editor;
+      if (field === 'stage') {
+        editor = document.createElement('select');
+        STAGE_OPTIONS.forEach(([v, label]) => {
+          const opt = document.createElement('option');
+          opt.value = v; opt.textContent = label;
+          if (v === original) opt.selected = true;
+          editor.appendChild(opt);
+        });
+      } else if (field === 'source') {
+        editor = document.createElement('select');
+        SOURCE_OPTIONS.forEach(([v, label]) => {
+          const opt = document.createElement('option');
+          opt.value = v; opt.textContent = label;
+          if (v === original) opt.selected = true;
+          editor.appendChild(opt);
+        });
+      } else if (field === 'date') {
+        editor = document.createElement('input');
+        editor.type = 'date'; editor.value = original;
+      } else {
+        editor = document.createElement('input');
+        editor.type = 'text'; editor.value = original;
+      }
+      editor.className = 'border hairline rounded px-1.5 py-0.5 text-xs w-full';
+      cell.innerHTML = '';
+      cell.appendChild(editor);
+      editor.focus({ preventScroll: true });
+      if (editor.select) editor.select();
+      let done = false;
+      async function commit() {
+        if (done) return; done = true;
+        const v = (editor.value||'').trim();
+        const update = {};
+        if (field === 'name' || field === 'company') {
+          if (v && v !== original) update[field] = v;
+        } else if (field === 'role') {
+          if (v !== original) update.role = v || null;
+        } else if (field === 'date') {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v !== original) update.date = v;
+        } else if (field === 'stage' || field === 'source') {
+          if (v !== original) update[field] = v;
+        }
+        if (Object.keys(update).length > 0) {
+          if (sb && state.user) {
+            const { data, error } = await sb.from('matches').update(update).eq('id', mid).select().single();
+            if (error) { alert('수정 실패: ' + error.message); renderAllPreserve(); return; }
+            Object.assign(m, data);
+          } else {
+            Object.assign(m, update);
+          }
+          save();
+        }
+        renderAllPreserve();
+      }
+      editor.addEventListener('blur', commit);
+      editor.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); editor.blur(); }
+        if (e.key === 'Escape') { e.preventDefault(); done = true; renderAllPreserve(); }
+      });
+      if (editor.tagName === 'SELECT') editor.addEventListener('change', () => editor.blur());
+    }
+
+    function renderBizHero() {
+      const cm = state.currentMonth;
+      const monthRev = monthBizRev();
+      const monthTgt = monthRevenueTarget(state.year, cm);
+      const monthPct = monthTgt ? Math.round(monthRev / monthTgt * 100) : 0;
+      const lastDay = new Date(state.year, cm, 0).getDate();
+      const monthEnd = `${state.year}-${String(cm).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+      const dDays = dateDiff(state.today, monthEnd);
+
+      $('#bizMonthLabel').textContent = `이번 달 ${cm}월 매출`;
+      $('#bizMonthValNum').textContent = (monthRev/1_000_000).toFixed(1) + 'M';
+      $('#bizMonthTargetNum').textContent = (monthTgt/1_000_000).toFixed(0) + 'M';
+      $('#bizMonthDday').textContent = dDays >= 0 ? `D-${dDays}` : `+${-dDays}일 (마감 지남)`;
+      $('#bizMonthPctNum').textContent = `${monthPct}%`;
+
+      // 게이지 색상
+      const gauge = $('#bizMonthGauge');
+      const pctEl = $('#bizMonthPctNum');
+      let gaugeCls, pctCls;
+      if (monthPct >= 100) { gaugeCls = 'bg-emerald-500'; pctCls = 'text-emerald-600'; }
+      else if (monthPct >= 70) { gaugeCls = 'bg-emerald-500'; pctCls = 'text-zinc-900'; }
+      else if (monthPct >= 30) { gaugeCls = 'bg-amber-500'; pctCls = 'text-amber-600'; }
+      else { gaugeCls = 'bg-red-400'; pctCls = 'text-red-500'; }
+      gauge.className = `h-full ${gaugeCls} rounded-full transition-all`;
+      gauge.style.width = Math.min(100, monthPct) + '%';
+      pctEl.className = `text-3xl font-bold tnum ${pctCls}`;
+
+      // 연간 누적 (작게)
+      const annual = annualBizRev();
+      const at = annualRevenueTarget(state.year);
+      const annualPct = at ? Math.round(annual / at * 100) : 0;
+      $('#bizAnnualNum').textContent = (annual/1_000_000).toFixed(1);
+      $('#bizAnnualTargetNum').textContent = (at/1_000_000).toFixed(0) + 'M';
+      const pill = $('#bizGapPill');
+      pill.textContent = `연간 ${annualPct}%`;
+      const elapsedPct = cm / 12 * 100;
+      let acls;
+      if (annualPct >= elapsedPct) acls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+      else if (annualPct >= elapsedPct * 0.75) acls = 'bg-amber-50 text-amber-700 border border-amber-200';
+      else acls = 'bg-red-50 text-red-700 border border-red-200';
+      pill.className = `pill ${acls} text-[10px]`;
+      pill.title = `연간 ${fmtMoney(annual)} / ${fmtMoney(at)} · 경과 ${Math.round(elapsedPct)}%`;
+
+      $('#tabBizBadge').textContent = `${fmtMoney(monthRev)}/${fmtMoney(monthTgt)}`;
+    }
+
+    // 펼침 상태/스크롤 보존 후 renderAll
+    function renderAllPreserve() {
+      const openCards = new Set([...document.querySelectorAll('[data-pcard]')].filter(d => d.open).map(d => d.dataset.pcard));
+      const openRows = new Set([...document.querySelectorAll('[data-mrow]')].filter(d => d.open).map(d => d.dataset.mrow));
+      const scrollY = window.scrollY;
+      renderAll();
+      document.querySelectorAll('[data-pcard]').forEach(d => { if (openCards.has(d.dataset.pcard)) d.open = true; });
+      document.querySelectorAll('[data-mrow]').forEach(d => { if (openRows.has(d.dataset.mrow)) d.open = true; });
+      window.scrollTo(0, scrollY);
+    }
+
+    function projectCard(p) {
+      const revPct = p.target ? Math.min(100, p.actual/p.target*100) : 0;
+      const subDone = (p.subtasks||[]).filter(s=>s.done).length;
+      const subTotal = (p.subtasks||[]).length;
+      let cardCls, headerBg, statusPill;
+      if (p.status === 'danger') {
+        cardCls = 'bg-white border-2 border-red-200';
+        headerBg = 'hover:bg-red-50/40 bg-red-50/20';
+        statusPill = `<span class="pill bg-red-100 text-red-700 border border-red-200 cell-edit" data-pcell="status" data-pid="${p.id}" title="클릭하여 상태 변경">⚠ ${dDay(p.deadline)}</span>`;
+      } else if (p.status === 'delayed') {
+        cardCls = 'bg-white border-2 border-red-200';
+        headerBg = 'hover:bg-red-50/40 bg-red-50/20';
+        statusPill = `<span class="pill bg-red-100 text-red-700 border border-red-200 cell-edit" data-pcell="status" data-pid="${p.id}" title="클릭하여 상태 변경">⚠ 지연</span>`;
+      } else if (p.status === 'review') {
+        cardCls = 'bg-white border hairline';
+        headerBg = 'hover:bg-zinc-50';
+        statusPill = `<span class="pill bg-amber-50 text-amber-700 cell-edit" data-pcell="status" data-pid="${p.id}" title="클릭하여 상태 변경">검토</span>`;
+      } else {
+        cardCls = 'bg-white border hairline';
+        headerBg = 'hover:bg-zinc-50';
+        statusPill = `<span class="pill bg-emerald-50 text-emerald-700 cell-edit" data-pcell="status" data-pid="${p.id}" title="클릭하여 상태 변경">정상</span>`;
+      }
+      const barCls = revPct >= 70 ? 'bar ok' : (revPct >= 30 ? 'bar' : 'bar warn');
+      return `
+        <div class="${cardCls} rounded-lg overflow-hidden">
+          <details data-pcard="${p.id}">
+            <summary>
+              <div class="px-3 py-2.5 flex items-center gap-3 ${headerBg}">
+                <span class="chev cursor-pointer">›</span>
+                <span class="cell-edit text-base" data-pcell="icon" data-pid="${p.id}" title="클릭하여 이모지 변경">${p.icon}</span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium text-sm cell-edit" data-pcell="name" data-pid="${p.id}" title="클릭하여 수정">${escapeHtml(p.name)}</span>
+                    ${statusPill}
+                  </div>
+                  <div class="text-[11px] ink-muted mt-0.5">
+                    <span class="cell-edit" data-pcell="owner" data-pid="${p.id}" title="담당자 변경">${escapeHtml(p.owner)}</span> ·
+                    <span class="cell-edit" data-pcell="deadline" data-pid="${p.id}" title="마감일 변경">${dDay(p.deadline)}</span> ·
+                    마일스톤 ${subDone}/${subTotal}
+                  </div>
+                </div>
+                <div class="w-32">
+                  <div class="${barCls}" style="height: 4px"><span style="width: ${revPct}%"></span></div>
+                  <div class="text-[11px] ink-muted tnum mt-1 text-right hover:text-zinc-900" data-edit-revenue="${p.id}" style="cursor:pointer" title="클릭하여 매출 입력">
+                    ${fmtMoney(p.actual)} · ${Math.round(revPct)}%
+                  </div>
+                </div>
+              </div>
+            </summary>
+            ${projectDetails(p)}
+          </details>
+        </div>`;
+    }
+
+    function projectDetails(p) {
+      const tasks = p.subtasks || [];
+      const doneCount = tasks.filter(s => s.done).length;
+      const placeholderSpan = (txt) => `<span class="ink-soft">— ${txt}</span>`;
+      return `
+        <div class="px-3 pb-3 pt-2 border-t hairline">
+          <!-- 가설 검증 + 마일스톤 통합 박스 -->
+          <div class="bg-zinc-50/40 rounded-md p-3 mb-3 space-y-2">
+            <div class="text-[10px] font-medium ink-muted uppercase tracking-wide">가설 검증</div>
+            <div class="text-[11px] ink-soft">
+              <span class="font-medium ink-muted">타겟 고객:</span>
+              <span class="cell-edit" data-pcell="customer_segment" data-pid="${p.id}" title="클릭하여 수정">${p.customer_segment ? escapeHtml(p.customer_segment) : placeholderSpan('타겟 고객 추가')}</span>
+            </div>
+            <div class="text-[11px] ink-soft">
+              <span class="font-medium ink-muted">가설:</span>
+              <span class="cell-edit" data-pcell="hypothesis" data-pid="${p.id}" title="클릭하여 수정">${p.hypothesis ? escapeHtml(p.hypothesis) : placeholderSpan('가설 추가')}</span>
+            </div>
+            <div class="text-[11px] ink-soft">
+              <span class="font-medium ink-muted">검증 지표:</span>
+              <span class="cell-edit" data-pcell="success_metric" data-pid="${p.id}" title="클릭하여 수정">${p.success_metric ? escapeHtml(p.success_metric) : placeholderSpan('검증 지표 추가')}</span>
+            </div>
+
+            <!-- 검증 방법 (마일스톤) -->
+            <div class="pt-2 mt-2 border-t hairline">
+              <div class="flex items-center justify-between mb-1.5">
+                <div class="text-[11px] ink-soft"><span class="font-medium ink-muted">검증 방법</span> <span class="ink-muted">(마일스톤 · ${doneCount}/${tasks.length})</span></div>
+                <button data-add-subtask="${p.id}" class="text-[11px] ink-muted hover:text-zinc-900">+ 마일스톤</button>
+              </div>
+              ${tasks.length > 0
+                ? tasks.map((s, i) => subtaskRow(p.id, s, i === tasks.length - 1)).join('')
+                : '<div class="text-[11px] ink-muted py-1.5 italic">예) 인터뷰 10건 · 베타 30곳 픽업 · 유료 전환 24곳 — 가설을 어떻게 검증할 건지 단계로 쪼개세요</div>'}
+            </div>
+          </div>
+
+          <!-- 일정·매출 -->
+          <div class="grid grid-cols-4 gap-2 text-[11px] ink-soft mb-3 px-1">
+            <div>
+              <div class="text-[10px] ink-muted mb-0.5">시작일</div>
+              <span class="cell-edit" data-pcell="start_date" data-pid="${p.id}" title="클릭하여 수정">${p.start_date ? p.start_date.slice(5).replace('-','/') : placeholderSpan('—')}</span>
+            </div>
+            <div>
+              <div class="text-[10px] ink-muted mb-0.5">마감일</div>
+              <span class="cell-edit" data-pcell="deadline" data-pid="${p.id}" title="클릭하여 수정">${p.deadline ? p.deadline.slice(5).replace('-','/') : placeholderSpan('—')}</span>
+            </div>
+            <div>
+              <div class="text-[10px] ink-muted mb-0.5">목표 매출</div>
+              <span class="cell-edit tnum" data-pcell="target" data-pid="${p.id}" title="클릭하여 수정">${fmtMoney(p.target)}</span>
+            </div>
+            <div>
+              <div class="text-[10px] ink-muted mb-0.5">실 매출</div>
+              <span class="cell-edit tnum" data-pcell="actual" data-pid="${p.id}" title="클릭하여 수정">${fmtMoney(p.actual)}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end mt-2">
+            <button data-delete-project="${p.id}" class="text-[11px] ink-muted hover:text-red-600">프로젝트 삭제</button>
+          </div>
+        </div>`;
+    }
+
+    function subtaskRow(pid, s, isLast) {
+      const tl = subtaskTimeline(s);
+      const colorMap = {
+        emerald: ['bg-emerald-500', 'bg-emerald-50 text-emerald-700'],
+        blue:    ['bg-blue-500',    'bg-blue-50 text-blue-700'],
+        amber:   ['bg-amber-500',   'bg-amber-50 text-amber-700'],
+        red:     ['bg-red-500',     'bg-red-50 text-red-700'],
+        zinc:    ['bg-zinc-300',    'bg-zinc-100 text-zinc-600'],
+        gray:    ['bg-zinc-300',    'bg-zinc-100 text-zinc-600'],
+      };
+      const [fillColor, pillCls] = colorMap[tl.color] || colorMap.zinc;
+      const titleCls = s.done ? 'line-through ink-muted' : '';
+      const showMarker = !s.done && tl.timePct > 0 && tl.timePct < 100;
+      const lastBorder = isLast ? '' : 'border-b hairline';
+      return `
+        <div class="grid items-center gap-3 py-2 text-xs ${lastBorder}" style="grid-template-columns: 18px 1.4fr 50px minmax(0,1.6fr) 50px 70px 14px;">
+          <input type="checkbox" data-subtask="${pid}|${s.id}" ${s.done ? 'checked' : ''} class="accent-zinc-900" />
+          <div>
+            <div class="cell-edit ${titleCls}" data-stcell="title" data-pid="${pid}" data-sid="${s.id}" title="클릭하여 수정">${escapeHtml(s.title)}</div>
+            <div class="text-[10px] ink-muted cell-edit" data-stcell="owner" data-pid="${pid}" data-sid="${s.id}" title="담당자 변경">${escapeHtml(s.owner)}</div>
+          </div>
+          <div class="cell-edit text-right" data-stcell="start" data-pid="${pid}" data-sid="${s.id}" title="클릭하여 시작일 수정">
+            <div class="text-[9px] ink-muted leading-none">시작</div>
+            <div class="ink-muted tnum mt-0.5">${fmtDate(s.start)}</div>
+          </div>
+          <div class="relative h-1.5 bg-zinc-100 rounded-full">
+            <div class="absolute inset-y-0 left-0 ${fillColor} rounded-full" style="width: ${tl.progress}%"></div>
+            ${showMarker ? `<div class="tl-marker" style="left: ${tl.timePct}%"></div>` : ''}
+          </div>
+          <div class="cell-edit" data-stcell="end" data-pid="${pid}" data-sid="${s.id}" title="클릭하여 마감일 수정">
+            <div class="text-[9px] ink-muted leading-none">마감</div>
+            <div class="ink-muted tnum mt-0.5">${fmtDate(s.end)}</div>
+          </div>
+          <div class="text-right"><span class="pill cell-edit ${pillCls}" data-stcell="status" data-pid="${pid}" data-sid="${s.id}" title="클릭하여 상태 변경">${tl.status}</span></div>
+          <button data-delete-subtask="${pid}|${s.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="삭제">✕</button>
+        </div>`;
+    }
+
+    function renderMonthList() {
+      const list = $('#monthList');
+      if (!list) return;
+      const cm = state.currentMonth;
+      const yr = state.year;
+      const lbl = $('#monthListLabel');
+      if (lbl) lbl.textContent = `월별 시도 · ${yr}`;
+      const meta = $('#monthListMeta');
+      const cMayProj = state.projects.filter(p => p.year === yr && p.month === cm);
+      const cMayDanger = cMayProj.filter(p => p.status==='danger' || p.status==='delayed').length;
+      if (meta) meta.textContent = cMayProj.length > 0 ? `이번 달 정상 ${cMayProj.length-cMayDanger} · 위험 ${cMayDanger}` : '';
+      const html = [];
+      for (let m = 1; m <= 12; m++) {
+        html.push(monthRow(m, m === cm, m < cm));
+      }
+      list.innerHTML = html.join('');
+
+      // 월별 매출 목표 인라인 편집
+      list.querySelectorAll('[data-mtarget]').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation(); e.preventDefault();
+          if (el.querySelector('input')) return;
+          const month = parseInt(el.dataset.mtarget, 10);
+          const cur = monthRevenueTarget(state.year, month);
+          const input = document.createElement('input');
+          input.type = 'number'; input.min = '0'; input.value = cur;
+          input.className = 'border hairline rounded px-1 py-0.5 text-xs w-24 tnum';
+          el.innerHTML = '';
+          el.appendChild(input);
+          input.focus({ preventScroll: true }); input.select();
+          let done = false;
+          const commit = async () => {
+            if (done) return; done = true;
+            const n = parseInt(input.value, 10);
+            if (!isNaN(n) && n >= 0 && n !== cur) {
+              await saveMonthRevenueTarget(state.year, month, n);
+            }
+            renderAllPreserve();
+          };
+          input.addEventListener('blur', commit);
+          input.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+            if (ev.key === 'Escape') { ev.preventDefault(); done = true; renderAllPreserve(); }
+          });
+        });
+      });
+    }
+
+    function monthRow(m, isCurrent, isPast) {
+      const yr = state.year;
+      const monthKey = `${yr}-${String(m).padStart(2,'0')}`;
+      const target = monthRevenueTarget(yr, m);
+      const monthProjects = state.projects.filter(p => p.year === yr && p.month === m);
+      let revenue;
+      if (monthProjects.length > 0) revenue = monthProjects.reduce((s,p) => s+(p.actual||0), 0);
+      else revenue = state.monthArchive[monthKey] || 0;
+      const pct = target ? Math.round(revenue/target*100) : 0;
+      const borderTop = m > 1 ? 'border-t hairline' : '';
+      const targetEditable = `<span class="cell-edit text-[10px] ink-muted tnum" data-mtarget="${m}" title="클릭하여 ${m}월 목표 수정">목표 ${fmtMoney(target)}</span>`;
+
+      if (isCurrent) {
+        const lastDay = new Date(yr, m, 0).getDate();
+        const monthEnd = `${yr}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+        const dDays = dateDiff(state.today, monthEnd);
+        const dDayStr = dDays >= 0 ? `D-${dDays}` : `+${-dDays}일`;
+        const cnt = monthProjects.length;
+        const danger = monthProjects.filter(p => p.status==='danger' || p.status==='delayed').length;
+        const statusTxt = cnt === 0 ? '비어있음 — 아래에서 신사업 추가' : `정상 ${cnt - danger} · 위험 ${danger}`;
+        return `
+          <details open data-mrow="${m}">
+            <summary>
+              <div class="grid items-center gap-3 px-4 py-3.5 cursor-pointer ${borderTop}" style="grid-template-columns: 16px 56px 1fr 90px 44px; background: #fafaf6; border-left: 3px solid var(--ink); padding-left: 13px;">
+                <span class="chev text-sm">›</span>
+                <div>
+                  <div class="text-sm font-bold tnum">${m}월</div>
+                  <div class="text-[10px] ink-soft tnum mt-0.5">이번 달 · ${dDayStr}</div>
+                </div>
+                <div class="bar" style="height: 7px"><span style="width: ${Math.min(100, pct)}%"></span></div>
+                <div class="text-right">
+                  <div class="text-sm font-medium tnum">${revenue > 0 ? fmtMoney(revenue) : '₩0'}</div>
+                  <div class="mt-0.5">${targetEditable}</div>
+                </div>
+                <div class="text-right text-sm font-bold tnum">${pct}%</div>
+              </div>
+            </summary>
+            <div class="px-4 pb-4 pt-1 border-t hairline">
+              <div class="flex items-center justify-between my-3">
+                <div class="text-[11px] ink-muted">${m}월 프로젝트 (${cnt})</div>
+                <div class="text-[10px] ink-muted">${statusTxt}</div>
+              </div>
+              <div class="proj-list space-y-2" id="projectsList"></div>
+            </div>
+          </details>`;
+      } else if (isPast) {
+        const isEmpty = revenue === 0;
+        const opacity = isEmpty ? 'opacity-30' : 'opacity-65';
+        let barCls = 'bar', pctCls = 'ink-muted';
+        if (target > 0 && pct >= 100) { barCls = 'bar ok'; pctCls = 'text-emerald-600'; }
+        else if (target > 0 && pct >= 75) { barCls = 'bar warn'; pctCls = 'text-amber-600'; }
+        else if (target > 0 && revenue > 0) { barCls = 'bar danger'; pctCls = 'text-red-600'; }
+        const expandHtml = isEmpty
+          ? `<div class="px-5 py-3 border-t hairline bg-zinc-50/40 text-xs ink-muted">데이터 없음</div>`
+          : `<div class="px-5 py-3 border-t hairline bg-zinc-50/40 text-xs ink-muted">${monthProjects.length > 0 ? `프로젝트 ${monthProjects.length}개` : '아카이브 매출만 기록됨'}</div>`;
+        return `
+          <details data-mrow="${m}">
+            <summary>
+              <div class="grid items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 cursor-pointer ${opacity} ${borderTop}" style="grid-template-columns: 16px 40px 1fr 90px 44px;">
+                <span class="chev text-sm">›</span>
+                <div class="text-xs font-medium tnum">${m}월</div>
+                <div class="${barCls}" style="height: 5px"><span style="width: ${Math.min(100, pct)}%"></span></div>
+                <div class="text-right">
+                  <div class="text-xs ink-soft tnum">${revenue > 0 ? fmtMoney(revenue) : '—'}</div>
+                  <div class="mt-0.5">${targetEditable}</div>
+                </div>
+                <div class="text-right text-xs tnum ${pctCls}">${revenue > 0 ? pct + '%' : '—'}</div>
+              </div>
+            </summary>
+            ${expandHtml}
+          </details>`;
+      } else {
+        return `
+          <details data-mrow="${m}">
+            <summary>
+              <div class="grid items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 cursor-pointer opacity-50 ${borderTop}" style="grid-template-columns: 16px 40px 1fr 90px 44px;">
+                <span class="chev text-sm">›</span>
+                <div class="text-xs ink-muted tnum">${m}월</div>
+                <div class="bar" style="height: 5px"><span style="width: 0%"></span></div>
+                <div class="text-right">
+                  <div class="text-xs ink-muted tnum">—</div>
+                  <div class="mt-0.5">${targetEditable}</div>
+                </div>
+                <div class="text-right text-xs ink-muted tnum">—</div>
+              </div>
+            </summary>
+          </details>`;
+      }
+    }
+
+    function renderProjects() {
+      const list = $('#projectsList');
+      if (!list) return;
+      const may = state.projects.filter(p => p.year===state.year && p.month===state.currentMonth);
+      const addBtnHtml = `<button id="addProjectInline" class="w-full py-4 text-sm border hairline border-dashed rounded-lg ink-muted hover:text-zinc-900 hover:bg-white hover:border-zinc-400 transition">+ 신사업 추가</button>`;
+      list.innerHTML = may.length === 0
+        ? addBtnHtml
+        : may.map(projectCard).join('') + `<div class="pt-2">${addBtnHtml}</div>`;
+      const addProjBtn = $('#addProjectInline');
+      if (addProjBtn) addProjBtn.addEventListener('click', () => {
+        const form = $('#project-form');
+        form.classList.remove('hidden');
+        form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const firstInput = form.querySelector('input[name="name"]');
+        if (firstInput) firstInput.focus();
+      });
+      $$('input[data-subtask]').forEach(cb => cb.addEventListener('change', () => {
+        const [pid, sid] = cb.dataset.subtask.split('|');
+        toggleSubtask(pid, sid);
+      }));
+      $$('[data-add-subtask]').forEach(btn => btn.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        addSubtaskInline(btn.dataset.addSubtask);
+      }));
+      $$('[data-delete-subtask]').forEach(btn => btn.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        const [pid, sid] = btn.dataset.deleteSubtask.split('|');
+        deleteSubtask(pid, sid);
+      }));
+      $$('[data-stcell]').forEach(el => el.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        if (el.querySelector('input')) return;
+        enableSubtaskFieldEdit(el, el.dataset.pid, el.dataset.sid, el.dataset.stcell);
+      }));
+      $$('[data-edit-revenue]').forEach(el => el.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        editRevenue(el.dataset.editRevenue);
+      }));
+      // Project field inline edit
+      $$('[data-pcell]').forEach(el => el.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        if (el.querySelector('input, select, textarea')) return;
+        enableProjectFieldEdit(el, el.dataset.pid, el.dataset.pcell);
+      }));
+      $$('[data-delete-project]').forEach(btn => btn.addEventListener('click', e => {
+        e.stopPropagation(); e.preventDefault();
+        deleteProject(btn.dataset.deleteProject);
+      }));
+    }
+
+    function renderAll() {
+      renderKTCHero();
+      renderWeeklyList();
+      renderTargetEditor();
+      renderMetrics();
+      renderRecentMatches();
+      renderBizHero();
+      renderMonthList();
+      renderProjects();
+      renderCommunity();
+      save();
+    }
+
+    // ============== 커뮤니티 ==============
+    const PLATFORM_ICON = {
+      instagram: '📸', facebook: '📘', tiktok: '🎵', youtube: '📺',
+      threads: '🧵', other: '📱'
+    };
+    const POST_STATUS = {
+      planned:   ['bg-zinc-100 text-zinc-600',  '계획'],
+      shooting:  ['bg-amber-50 text-amber-700', '촬영'],
+      editing:   ['bg-blue-50 text-blue-700',   '편집'],
+      scheduled: ['bg-violet-50 text-violet-700','예약'],
+      published: ['bg-emerald-50 text-emerald-700', '발행'],
+      cancelled: ['bg-zinc-100 text-zinc-400',  '취소'],
+    };
+
+    function latestFollowers(channelId) {
+      const history = state.followersHistory?.[channelId]?.[state.year] || {};
+      let bestWeek = -1, count = null;
+      for (const w in history) {
+        const wn = parseInt(w, 10);
+        if (wn <= state.currentWeek && wn > bestWeek) { bestWeek = wn; count = history[wn]; }
+      }
+      // 채널 자체 current_followers fallback
+      if (count == null) {
+        const ch = state.channels.find(c => c.id === channelId);
+        return ch?.current_followers ?? 0;
+      }
+      return count;
+    }
+
+    function weekDelta(channelId) {
+      const history = state.followersHistory?.[channelId]?.[state.year] || {};
+      const cur = history[state.currentWeek] ?? null;
+      const prev = history[state.currentWeek - 1] ?? null;
+      if (cur != null && prev != null) return cur - prev;
+      return 0;
+    }
+
+    function renderCommunity() {
+      renderCommunityHero();
+      renderCommunityChannels();
+      renderCommunityChart();
+      renderCommunityGrid();
+    }
+
+    function renderCommunityHero() {
+      const total = state.channels.reduce((s, c) => s + latestFollowers(c.id), 0);
+      const target = state.channels.reduce((s, c) => s + (c.target_followers || 0), 0);
+      const pct = target ? Math.round(total / target * 100) : 0;
+      const delta = state.channels.reduce((s, c) => s + weekDelta(c.id), 0);
+      $('#commTotalNum').textContent = total.toLocaleString();
+      $('#commTotalTarget').textContent = target.toLocaleString();
+      $('#commTotalPct').textContent = `${pct}%`;
+      const dEl = $('#commWeekDelta');
+      dEl.textContent = (delta >= 0 ? '+' : '') + delta;
+      dEl.className = delta > 0 ? 'text-emerald-600 font-medium' : (delta < 0 ? 'text-red-500 font-medium' : 'ink-soft');
+      const gauge = $('#commTotalGauge');
+      let gcls = 'bg-emerald-500';
+      if (pct < 30) gcls = 'bg-red-400';
+      else if (pct < 70) gcls = 'bg-amber-500';
+      gauge.className = `h-full ${gcls} rounded-full transition-all`;
+      gauge.style.width = Math.min(100, pct) + '%';
+      const tabBadge = $('#tabCommBadge');
+      if (tabBadge) tabBadge.textContent = `${total}/${target || '—'}`;
+    }
+
+    function renderCommunityChannels() {
+      const list = $('#commChannels');
+      if (!list) return;
+      if (!state.channels.length) {
+        list.innerHTML = '<div class="col-span-2 text-xs ink-muted text-center py-6">채널 없음 — 우상단 + 채널 추가</div>';
+        return;
+      }
+      list.innerHTML = state.channels.map(c => {
+        const cur = latestFollowers(c.id);
+        const target = c.target_followers || 0;
+        const pct = target ? Math.round(cur / target * 100) : 0;
+        const delta = weekDelta(c.id);
+        const icon = c.icon || PLATFORM_ICON[c.platform] || '📱';
+        const link = c.url ? `<a href="${escapeHtml(c.url)}" target="_blank" class="text-[10px] ink-soft hover:text-zinc-900 underline">열기 ↗</a>` : '';
+        const handle = c.handle ? `<span class="text-[10px] ink-muted">${escapeHtml(c.handle)}</span>` : '';
+        return `
+          <div class="bg-white border hairline rounded-lg p-4">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <span class="text-xl">${icon}</span>
+                <div>
+                  <div class="text-sm font-medium cell-edit" data-ccell="name" data-cid="${c.id}" title="클릭하여 수정">${escapeHtml(c.name)}</div>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    ${handle ? `<span class="text-[10px] ink-muted cell-edit" data-ccell="handle" data-cid="${c.id}" title="클릭하여 수정">${escapeHtml(c.handle)}</span>` : `<span class="text-[10px] ink-soft cell-edit" data-ccell="handle" data-cid="${c.id}" title="클릭하여 수정">@핸들 추가</span>`}
+                    ${link}
+                  </div>
+                </div>
+              </div>
+              <button data-delete-channel="${c.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="삭제">✕</button>
+            </div>
+            <div class="flex items-baseline gap-2 mb-1.5">
+              <span class="text-2xl font-semibold tnum">${cur.toLocaleString()}</span>
+              <span class="text-sm ink-muted tnum">/ <span class="cell-edit" data-ccell="target_followers" data-cid="${c.id}" title="목표 수정">${target.toLocaleString()}</span></span>
+              <span class="ml-auto text-xs ${delta>0?'text-emerald-600':delta<0?'text-red-500':'ink-soft'}">${delta>=0?'+':''}${delta}</span>
+            </div>
+            <div class="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+              <div class="h-full bg-zinc-900 rounded-full" style="width: ${Math.min(100, pct)}%"></div>
+            </div>
+            <div class="text-[10px] ink-muted mt-1.5 text-right tnum">${pct}%</div>
+          </div>`;
+      }).join('');
+
+      // 인라인 편집
+      list.querySelectorAll('[data-ccell]').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation(); e.preventDefault();
+          if (el.querySelector('input')) return;
+          enableChannelFieldEdit(el, el.dataset.cid, el.dataset.ccell);
+        });
+      });
+      list.querySelectorAll('[data-delete-channel]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation(); e.preventDefault();
+          if (!confirm('이 채널을 삭제할까요? (주차별 기록 함께 삭제됨)')) return;
+          deleteChannel(btn.dataset.deleteChannel);
+        });
+      });
+    }
+
+    function renderCommunityChart() {
+      const svg = $('#commChart');
+      if (!svg) return;
+      const W = 520, H = 180, padL = 32, padR = 8, padT = 10, padB = 24;
+      const innerW = W - padL - padR;
+      const innerH = H - padT - padB;
+      const startW = 1, endW = 53;
+      // total per week
+      const series = [];
+      let lastValue = 0;
+      for (let w = startW; w <= endW; w++) {
+        let total = 0;
+        let any = false;
+        state.channels.forEach(c => {
+          const v = state.followersHistory?.[c.id]?.[state.year]?.[w];
+          if (v != null) { total += v; any = true; }
+        });
+        if (any) lastValue = total;
+        series.push({ w, value: any ? total : null });
+      }
+      const maxVal = Math.max(state.channels.reduce((s,c)=>s+(c.target_followers||0),0), ...series.filter(s=>s.value!=null).map(s=>s.value), 100);
+      const xPos = w => padL + ((w - 1) / (52 - 1 + 1e-9)) * innerW;
+      const yPos = v => padT + (1 - v/maxVal) * innerH;
+
+      let pathD = '';
+      let started = false;
+      series.forEach(p => {
+        if (p.value == null) return;
+        const x = xPos(p.w), y = yPos(p.value);
+        pathD += (started ? ' L ' : 'M ') + x.toFixed(1) + ' ' + y.toFixed(1);
+        started = true;
+      });
+
+      // target line (total target across channels)
+      const targetSum = state.channels.reduce((s,c) => s + (c.target_followers||0), 0);
+      const targetY = yPos(targetSum);
+
+      // axis labels
+      const months = [1,4,7,10,12];
+      const monthMarks = months.map(m => {
+        const r = weekRangeOf(state.year, 1);
+        // estimate week of month start
+        const w = (m === 1) ? 1 : weekToMonth ? Math.max(1, [...Array(53).keys()].map(i=>i+1).find(ww => weekToMonth(state.year, ww) === m) || 1) : 1;
+        const x = xPos(w);
+        return `<text x="${x}" y="${H - 4}" fill="#a1a1aa" font-size="9" text-anchor="middle">${m}월</text>`;
+      }).join('');
+
+      // current week marker
+      const cw = state.currentWeek;
+      const cwX = xPos(cw);
+
+      svg.innerHTML = `
+        <line x1="${padL}" y1="${targetY}" x2="${W-padR}" y2="${targetY}" stroke="#d4d4d4" stroke-width="0.6" stroke-dasharray="3,3" />
+        <text x="${W-padR}" y="${targetY-3}" fill="#a1a1aa" font-size="8" text-anchor="end">목표 ${targetSum.toLocaleString()}</text>
+        <line x1="${cwX}" y1="${padT}" x2="${cwX}" y2="${padT+innerH}" stroke="#18181b" stroke-width="0.5" stroke-dasharray="2,2" />
+        <text x="${cwX}" y="${padT-2}" fill="#18181b" font-size="9" text-anchor="middle" font-weight="600">W${cw}</text>
+        ${pathD ? `<path d="${pathD}" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` : `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#a1a1aa" font-size="11">아직 기록 없음 — 우측 "주차별 입력" 버튼</text>`}
+        ${monthMarks}
+      `;
+
+      // 권한 따라 입력 버튼 표시
+      const editBtn = $('#commTrackerEditBtn');
+      if (editBtn) editBtn.classList.toggle('hidden', state.channels.length === 0);
+      const lbl = $('#commChartLabel');
+      if (lbl) lbl.textContent = `합계 팔로워 (현재 ${lastValue.toLocaleString()})`;
+    }
+
+    function renderCommunityGrid() {
+      const grid = $('#commGrid');
+      if (!grid) return;
+      const ym = $('#commGridMonth');
+      if (ym) ym.textContent = state.currentMonth;
+      const monthPosts = state.posts.filter(p => p.year === state.year && p.month === state.currentMonth);
+      const bySlot = {};
+      monthPosts.forEach(p => { bySlot[p.slot] = p; });
+      const cells = [];
+      for (let slot = 1; slot <= 9; slot++) {
+        const p = bySlot[slot];
+        if (p) {
+          const [statusCls, statusLbl] = POST_STATUS[p.status] || POST_STATUS.planned;
+          const thumb = p.thumbnail_url
+            ? `<img src="${escapeHtml(p.thumbnail_url)}" class="absolute inset-0 w-full h-full object-cover" alt="">`
+            : '';
+          const date = p.scheduled_date ? p.scheduled_date.slice(5).replace('-','/') : '';
+          cells.push(`
+            <div class="comm-cell relative aspect-square bg-zinc-50 rounded overflow-hidden cursor-pointer hover:ring-2 hover:ring-zinc-900 transition" data-post-slot="${slot}">
+              ${thumb}
+              <div class="absolute inset-0 ${thumb ? 'bg-gradient-to-t from-black/70 via-transparent' : ''} flex flex-col justify-between p-1.5">
+                <div class="flex items-start justify-between">
+                  <span class="pill ${statusCls} text-[9px]">${statusLbl}</span>
+                  ${date ? `<span class="text-[9px] tnum ${thumb?'text-white':'ink-muted'}">${date}</span>` : ''}
+                </div>
+                <div class="${thumb?'text-white':'text-zinc-700'} text-[10px] font-medium leading-tight line-clamp-2">${p.title ? escapeHtml(p.title) : '<span class="ink-muted italic">제목 없음</span>'}</div>
+              </div>
+            </div>`);
+        } else {
+          cells.push(`
+            <div class="comm-cell relative aspect-square bg-zinc-50 rounded overflow-hidden cursor-pointer hover:bg-zinc-100 transition border border-dashed border-zinc-200 hover:border-zinc-400 flex items-center justify-center" data-post-slot="${slot}">
+              <span class="text-2xl ink-muted">+</span>
+            </div>`);
+        }
+      }
+      grid.innerHTML = cells.join('');
+      const meta = $('#commGridMeta');
+      if (meta) {
+        const published = monthPosts.filter(p => p.status === 'published').length;
+        meta.textContent = `${published}/${monthPosts.length || 9} 발행`;
+      }
+      grid.querySelectorAll('[data-post-slot]').forEach(cell => {
+        cell.addEventListener('click', () => openPostModal(parseInt(cell.dataset.postSlot, 10)));
+      });
+    }
+
+    async function addChannel(form) {
+      const fd = new FormData(form);
+      const platform = fd.get('platform') || 'other';
+      const payload = {
+        name: (fd.get('name')||'').trim(),
+        platform,
+        icon: PLATFORM_ICON[platform] || '📱',
+        handle: (fd.get('handle')||'').trim() || null,
+        url: (fd.get('url')||'').trim() || null,
+        current_followers: parseInt(fd.get('current_followers')||'0', 10) || 0,
+        target_followers: parseInt(fd.get('target_followers')||'1000', 10) || 1000,
+        sort_order: state.channels.length + 1,
+      };
+      if (!payload.name) { alert('이름 필수'); return; }
+      if (sb && state.user) {
+        const { data, error } = await sb.from('community_channels').insert({ ...payload, created_by: state.user.id }).select().single();
+        if (error) { alert('실패: ' + error.message); return; }
+        state.channels.push(data);
+      } else {
+        state.channels.push({ id: uid(), ...payload });
+      }
+      $('#channelModal').style.display = 'none';
+      form.reset();
+      renderAllPreserve();
+    }
+
+    async function deleteChannel(cid) {
+      if (sb && state.user) {
+        const { error } = await sb.from('community_channels').delete().eq('id', cid);
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+      }
+      state.channels = state.channels.filter(c => c.id !== cid);
+      delete state.followersHistory[cid];
+      renderAllPreserve();
+    }
+
+    function enableChannelFieldEdit(cellEl, cid, field) {
+      const c = state.channels.find(x => x.id === cid);
+      if (!c) return;
+      if (cellEl.querySelector('input')) return;
+      const original = String(c[field] ?? '');
+      const editor = document.createElement('input');
+      editor.type = (field === 'target_followers') ? 'number' : 'text';
+      editor.value = original;
+      editor.className = 'border hairline rounded px-1 py-0.5 text-xs w-full';
+      cellEl.innerHTML = '';
+      cellEl.appendChild(editor);
+      editor.focus({ preventScroll: true }); editor.select?.();
+      let done = false;
+      const commit = async () => {
+        if (done) return; done = true;
+        const v = editor.value.trim();
+        if (v !== original) {
+          const update = {};
+          if (field === 'target_followers') update[field] = parseInt(v, 10) || 0;
+          else update[field] = v || null;
+          if (sb && state.user) {
+            const { error } = await sb.from('community_channels').update(update).eq('id', cid);
+            if (error) { alert('실패: ' + error.message); renderAllPreserve(); return; }
+          }
+          Object.assign(c, update);
+        }
+        renderAllPreserve();
+      };
+      editor.addEventListener('blur', commit);
+      editor.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); editor.blur(); }
+        if (e.key === 'Escape') { e.preventDefault(); done = true; renderAllPreserve(); }
+      });
+    }
+
+    function openTrackerForm() {
+      const form = $('#commTrackerForm');
+      const inputs = $('#commTrackerInputs');
+      $('#commTrackerCurWeek').textContent = `W${state.currentWeek}`;
+      inputs.innerHTML = state.channels.map(c => {
+        const cur = state.followersHistory?.[c.id]?.[state.year]?.[state.currentWeek] ?? latestFollowers(c.id);
+        return `
+          <label class="flex items-center gap-3">
+            <span class="text-xl">${c.icon || PLATFORM_ICON[c.platform] || '📱'}</span>
+            <span class="flex-1 text-sm">${escapeHtml(c.name)}</span>
+            <input type="number" min="0" data-tracker-cid="${c.id}" value="${cur}" class="w-28 text-sm border hairline rounded-md px-2 py-1.5 tnum text-right" />
+          </label>`;
+      }).join('');
+      form.classList.remove('hidden');
+    }
+
+    async function saveTracker(form) {
+      const inputs = form.querySelectorAll('[data-tracker-cid]');
+      for (const inp of inputs) {
+        const cid = inp.dataset.trackerCid;
+        const count = parseInt(inp.value, 10) || 0;
+        if (sb && state.user) {
+          await sb.from('community_followers_history').upsert({
+            channel_id: cid, year: state.year, week: state.currentWeek, count
+          }, { onConflict: 'channel_id,year,week' });
+          await sb.from('community_channels').update({ current_followers: count, updated_at: new Date().toISOString() }).eq('id', cid);
+        }
+        if (!state.followersHistory[cid]) state.followersHistory[cid] = {};
+        if (!state.followersHistory[cid][state.year]) state.followersHistory[cid][state.year] = {};
+        state.followersHistory[cid][state.year][state.currentWeek] = count;
+        const c = state.channels.find(x => x.id === cid);
+        if (c) c.current_followers = count;
+      }
+      form.classList.add('hidden');
+      renderAllPreserve();
+    }
+
+    function openPostModal(slot, post) {
+      const modal = $('#postModal');
+      const form = $('#postForm');
+      const existing = post || state.posts.find(p => p.year === state.year && p.month === state.currentMonth && p.slot === slot);
+      $('#postModalSlot').textContent = `슬롯 ${slot}`;
+      form.querySelector('[name="postId"]').value = existing?.id || '';
+      form.querySelector('[name="slot"]').value = slot;
+      form.querySelector('[name="title"]').value = existing?.title || '';
+      form.querySelector('[name="caption"]').value = existing?.caption || '';
+      form.querySelector('[name="channel"]').value = existing?.channel || '';
+      form.querySelector('[name="scheduled_date"]').value = existing?.scheduled_date || '';
+      form.querySelector('[name="status"]').value = existing?.status || 'planned';
+      form.querySelector('[name="owner"]').value = existing?.owner || '';
+      form.querySelector('[name="thumbnail_url"]').value = existing?.thumbnail_url || '';
+      form.querySelector('[name="url"]').value = existing?.url || '';
+      form.querySelector('[name="likes"]').value = existing?.likes || 0;
+      $('#postDelete').style.display = existing ? '' : 'none';
+      modal.style.display = 'flex';
+    }
+
+    async function savePost(form) {
+      const fd = new FormData(form);
+      const id = fd.get('postId');
+      const payload = {
+        year: state.year,
+        month: state.currentMonth,
+        slot: parseInt(fd.get('slot'), 10),
+        title: (fd.get('title')||'').trim() || null,
+        caption: (fd.get('caption')||'').trim() || null,
+        channel: fd.get('channel') || null,
+        scheduled_date: fd.get('scheduled_date') || null,
+        status: fd.get('status') || 'planned',
+        owner: (fd.get('owner')||'').trim() || null,
+        thumbnail_url: (fd.get('thumbnail_url')||'').trim() || null,
+        url: (fd.get('url')||'').trim() || null,
+        likes: parseInt(fd.get('likes')||'0', 10) || 0,
+      };
+      if (sb && state.user) {
+        if (id) {
+          const { error } = await sb.from('community_posts').update(payload).eq('id', id);
+          if (error) { alert('실패: ' + error.message); return; }
+          const i = state.posts.findIndex(p => p.id === id);
+          if (i >= 0) state.posts[i] = { ...state.posts[i], ...payload };
+        } else {
+          const { data, error } = await sb.from('community_posts').insert({ ...payload, created_by: state.user.id }).select().single();
+          if (error) { alert('실패: ' + error.message); return; }
+          state.posts.push(data);
+        }
+      } else {
+        if (id) {
+          const i = state.posts.findIndex(p => p.id === id);
+          if (i >= 0) state.posts[i] = { ...state.posts[i], ...payload };
+        } else {
+          state.posts.push({ id: uid(), ...payload });
+        }
+      }
+      $('#postModal').style.display = 'none';
+      renderAllPreserve();
+    }
+
+    async function deletePost(id) {
+      if (!id) return;
+      if (sb && state.user) {
+        const { error } = await sb.from('community_posts').delete().eq('id', id);
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+      }
+      state.posts = state.posts.filter(p => p.id !== id);
+      $('#postModal').style.display = 'none';
+      renderAllPreserve();
+    }
+
+    // ---------- HANDLERS ----------
+    async function addMatch(form) {
+      const fd = new FormData(form);
+      const payload = {
+        date: fd.get('date') || state.today,
+        name: (fd.get('name')||'').trim(),
+        company: (fd.get('company')||'').trim(),
+        role: (fd.get('role')||'').trim() || null,
+        source: fd.get('source'),
+        stage: fd.get('stage')
+      };
+      if (!payload.name || !payload.company) { alert('인재명, 기업명 필수'); return; }
+      let saved;
+      if (sb && state.user) {
+        const { data, error } = await sb.from('matches').insert({ ...payload, created_by: state.user.id }).select().single();
+        if (error) { alert('저장 실패: ' + error.message); return; }
+        saved = data;
+      } else {
+        saved = { id: uid(), ...payload };
+      }
+      state.matches.unshift(saved);
+      form.reset();
+      const dateInput = form.querySelector('input[name="date"]');
+      if (dateInput) dateInput.value = state.today;
+      $('#match-form').classList.add('hidden');
+      save();
+      renderAll();
+    }
+
+    async function addProject(form) {
+      const fd = new FormData(form);
+      const lastDay = new Date(state.year, state.currentMonth, 0).getDate();
+      const base = {
+        icon: fd.get('icon') || '✨',
+        name: (fd.get('name')||'').trim(),
+        owner: fd.get('owner') || '미정',
+        hypothesis: (fd.get('hypothesis')||'').trim() || null,
+        customer_segment: (fd.get('customer_segment')||'').trim() || null,
+        success_metric: (fd.get('success_metric')||'').trim() || null,
+        start_date: fd.get('start_date') || null,
+        year: state.year,
+        month: state.currentMonth,
+        deadline: fd.get('deadline') || `${state.year}-${String(state.currentMonth).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
+        status: 'normal',
+        subtasks: []
+      };
+      if (!base.name) { alert('프로젝트명 필수'); return; }
+      const targetVal = parseInt(fd.get('target') || '1000000', 10);
+      let saved;
+      if (sb && state.user) {
+        const { data, error } = await sb.from('projects').insert({
+          ...base, target_revenue: targetVal, actual_revenue: 0, created_by: state.user.id
+        }).select().single();
+        if (error) { alert('저장 실패: ' + error.message); return; }
+        saved = { ...data, target: data.target_revenue, actual: data.actual_revenue, subtasks: data.subtasks || [] };
+      } else {
+        saved = { id: uid(), ...base, target: targetVal, actual: 0 };
+      }
+      state.projects.push(saved);
+      form.reset();
+      // 이모지 picker 초기화
+      const iconHidden = form.querySelector('input[name="icon"]');
+      if (iconHidden) iconHidden.value = '✨';
+      const picker = $('#emojiPicker');
+      if (picker) picker.querySelectorAll('.emoji-btn').forEach(b => b.classList.toggle('selected', b.dataset.emoji === '✨'));
+      $('#project-form').classList.add('hidden');
+      save();
+      renderAll();
+    }
+
+    async function toggleSubtask(pid, sid) {
+      const p = state.projects.find(x => x.id === pid);
+      if (!p) return;
+      const s = (p.subtasks||[]).find(x => x.id === sid);
+      if (!s) return;
+      const prev = { done: s.done, progress: s.progress, status: s.status };
+      s.done = !s.done;
+      if (s.done) { s.progress = 100; s.status = 'done'; }
+      else { if (s.status === 'done') s.status = 'doing'; }
+      if (sb && state.user) {
+        const { error } = await sb.from('projects').update({ subtasks: p.subtasks }).eq('id', pid);
+        if (error) { alert('저장 실패: ' + error.message); Object.assign(s, prev); }
+      }
+      save();
+      renderAllPreserve();
+    }
+
+    async function addSubtaskInline(pid) {
+      const p = state.projects.find(x => x.id === pid);
+      if (!p) return;
+      p.subtasks = p.subtasks || [];
+      const newId = uid();
+      const today = state.today;
+      const lastDay = p.deadline || today;
+      p.subtasks.push({
+        id: newId,
+        title: '새 마일스톤',
+        owner: state.profile?.name || '미정',
+        start: today,
+        end: lastDay,
+        done: false,
+        progress: 0,
+        status: 'todo'
+      });
+      if (sb && state.user) {
+        const { error } = await sb.from('projects').update({ subtasks: p.subtasks }).eq('id', pid);
+        if (error) { alert('저장 실패: ' + error.message); p.subtasks.pop(); return; }
+      }
+      save();
+      renderAllPreserve();
+      // 새 행의 title 클릭 → 즉시 편집 모드
+      setTimeout(() => {
+        const cell = document.querySelector(`[data-stcell="title"][data-sid="${newId}"]`);
+        if (cell) cell.click();
+      }, 30);
+    }
+
+    async function deleteSubtask(pid, sid) {
+      const p = state.projects.find(x => x.id === pid);
+      if (!p) return;
+      const idx = (p.subtasks || []).findIndex(s => s.id === sid);
+      if (idx < 0) return;
+      const removed = p.subtasks.splice(idx, 1);
+      if (sb && state.user) {
+        const { error } = await sb.from('projects').update({ subtasks: p.subtasks }).eq('id', pid);
+        if (error) { alert('삭제 실패: ' + error.message); p.subtasks.splice(idx, 0, ...removed); return; }
+      }
+      save();
+      renderAllPreserve();
+    }
+
+    function enableSubtaskFieldEdit(cellEl, pid, sid, field) {
+      const p = state.projects.find(x => x.id === pid);
+      if (!p) return;
+      const s = (p.subtasks || []).find(x => x.id === sid);
+      if (!s) return;
+      if (cellEl.querySelector('input, select')) return;
+      const currentStatus = s.done ? 'done' : (s.status || 'todo');
+      const original = field === 'status' ? currentStatus : (s[field] || '');
+      let editor;
+      if (field === 'status') {
+        editor = document.createElement('select');
+        SUBTASK_STATUSES.forEach(([v, label]) => {
+          const opt = document.createElement('option');
+          opt.value = v; opt.textContent = label;
+          if (v === original) opt.selected = true;
+          editor.appendChild(opt);
+        });
+      } else if (field === 'start' || field === 'end') {
+        editor = document.createElement('input');
+        editor.type = 'date'; editor.value = original;
+      } else {
+        editor = document.createElement('input');
+        editor.type = 'text'; editor.value = original;
+      }
+      editor.className = 'border hairline rounded px-1 py-0.5 text-xs w-full';
+      cellEl.innerHTML = '';
+      cellEl.appendChild(editor);
+      editor.focus({ preventScroll: true });
+      if (editor.select) editor.select();
+
+      let done = false;
+      const commit = async () => {
+        if (done) return; done = true;
+        const v = (editor.value || '').trim();
+        let changed = false;
+        const prevSnap = { status: s.status, done: s.done, [field]: s[field] };
+        if (field === 'status') {
+          if (v && v !== original) {
+            s.status = v;
+            s.done = (v === 'done');
+            changed = true;
+          }
+        } else {
+          if (v && v !== original) {
+            s[field] = v;
+            changed = true;
+          }
+        }
+        if (changed) {
+          if (sb && state.user) {
+            const { error } = await sb.from('projects').update({ subtasks: p.subtasks }).eq('id', pid);
+            if (error) { alert('저장 실패: ' + error.message); Object.assign(s, prevSnap); }
+          }
+          save();
+        }
+        renderAllPreserve();
+      };
+      editor.addEventListener('blur', commit);
+      editor.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); editor.blur(); }
+        if (e.key === 'Escape') { e.preventDefault(); done = true; renderAllPreserve(); }
+      });
+      if (editor.tagName === 'SELECT') editor.addEventListener('change', () => editor.blur());
+    }
+
+    const PROJECT_OWNERS = ['남영훈','김호현','튀띤','이정애','김슬기'];
+    const PROJECT_STATUS = [['normal','정상'],['review','검토'],['danger','위험'],['delayed','지연']];
+    const PROJECT_EMOJIS = ['✨','🚀','💡','🎯','📚','🎨','🍔','☕','🛒','📱','💼','🎓','🏢','🌐','📊','🤝','💰','📈','🎬','🎵','🌱','🔧','🧪','🏃'];
+
+    function enableProjectFieldEdit(cellEl, pid, field) {
+      const p = state.projects.find(x => x.id === pid);
+      if (!p) return;
+
+      // 이모지: popover
+      if (field === 'icon') {
+        const existing = document.getElementById('emojiPopover');
+        if (existing) existing.remove();
+        const pop = document.createElement('div');
+        pop.id = 'emojiPopover';
+        pop.className = 'absolute z-50 bg-white border hairline rounded-lg shadow-lg p-2 grid grid-cols-8 gap-1';
+        pop.style.minWidth = '280px';
+        pop.innerHTML = PROJECT_EMOJIS.map(e => `<button type="button" class="emoji-btn ${e === p.icon ? 'selected' : ''}" data-emoji="${e}">${e}</button>`).join('') +
+          `<input id="emojiPopCustom" type="text" maxlength="2" class="col-span-8 mt-1 text-center text-sm border hairline rounded-md py-1.5" placeholder="직접 입력 (✏️)" />`;
+        document.body.appendChild(pop);
+        const rect = cellEl.getBoundingClientRect();
+        pop.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+        pop.style.left = (rect.left + window.scrollX) + 'px';
+        const close = () => { pop.remove(); document.removeEventListener('click', onDoc, true); };
+        const apply = async (v) => {
+          if (!v) return close();
+          if (v === p.icon) return close();
+          if (sb && state.user) {
+            const { error } = await sb.from('projects').update({ icon: v }).eq('id', pid);
+            if (error) { alert('실패: ' + error.message); return close(); }
+          }
+          p.icon = v; save(); close(); renderAllPreserve();
+        };
+        pop.querySelectorAll('.emoji-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); apply(b.dataset.emoji); }));
+        const customIn = pop.querySelector('#emojiPopCustom');
+        customIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); apply(customIn.value.trim()); } });
+        const onDoc = (e) => { if (!pop.contains(e.target)) close(); };
+        setTimeout(() => document.addEventListener('click', onDoc, true), 0);
+        return;
+      }
+
+      // 일반 필드: 인라인 input/select/textarea
+      const original = p[field] != null ? String(p[field]) : '';
+      let editor;
+      if (field === 'owner') {
+        editor = document.createElement('input');
+        editor.type = 'text';
+        editor.value = original;
+        editor.setAttribute('list', 'ownerSuggest');
+      } else if (field === 'status') {
+        editor = document.createElement('select');
+        PROJECT_STATUS.forEach(([v, label]) => {
+          const opt = document.createElement('option');
+          opt.value = v; opt.textContent = label;
+          if (v === original) opt.selected = true;
+          editor.appendChild(opt);
+        });
+      } else if (field === 'deadline' || field === 'start_date') {
+        editor = document.createElement('input');
+        editor.type = 'date'; editor.value = original.match(/^\d{4}-\d{2}-\d{2}/) ? original.slice(0,10) : '';
+      } else if (field === 'target' || field === 'actual') {
+        editor = document.createElement('input');
+        editor.type = 'number';
+        editor.value = String(field === 'target' ? (p.target || 0) : (p.actual || 0));
+        editor.min = '0';
+      } else if (field === 'hypothesis' || field === 'customer_segment' || field === 'success_metric') {
+        editor = document.createElement('textarea');
+        editor.value = original; editor.rows = 2;
+      } else {
+        editor = document.createElement('input');
+        editor.type = 'text'; editor.value = original;
+      }
+      editor.className = 'border hairline rounded px-1.5 py-0.5 text-sm w-full';
+      cellEl.innerHTML = '';
+      cellEl.appendChild(editor);
+      editor.focus({ preventScroll: true });
+      if (editor.select) editor.select();
+
+      let done = false;
+      async function commit() {
+        if (done) return; done = true;
+        const v = editor.value;
+        const update = {};
+        let newVal = original;
+        if (field === 'name' && v.trim() && v !== original) { update.name = v.trim(); newVal = v.trim(); }
+        else if (field === 'owner' && v !== original) { update.owner = v; newVal = v; }
+        else if (field === 'status' && v !== original) { update.status = v; newVal = v; }
+        else if (field === 'deadline' && /^\d{4}-\d{2}-\d{2}$/.test(v) && v !== original) { update.deadline = v; newVal = v; }
+        else if (field === 'start_date') {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(v)) { update.start_date = v; newVal = v; }
+          else if (v === '' && original) { update.start_date = null; newVal = null; }
+        }
+        else if (field === 'target') {
+          const n = parseInt(v, 10);
+          if (!isNaN(n) && n >= 0 && n !== p.target) { update.target_revenue = n; p.target = n; }
+        }
+        else if (field === 'actual') {
+          const n = parseInt(v, 10);
+          if (!isNaN(n) && n >= 0 && n !== p.actual) { update.actual_revenue = n; p.actual = n; }
+        }
+        else if ((field === 'hypothesis' || field === 'customer_segment' || field === 'success_metric') && v !== original) {
+          update[field] = v.trim() || null; newVal = v.trim() || null;
+        }
+        if (Object.keys(update).length > 0) {
+          if (sb && state.user) {
+            const { error } = await sb.from('projects').update(update).eq('id', pid);
+            if (error) { alert('수정 실패: ' + error.message); renderAllPreserve(); return; }
+          }
+          // 로컬 state 동기화 (target/actual은 위에서 처리)
+          if (field !== 'target' && field !== 'actual') p[field] = newVal;
+          save();
+        }
+        renderAllPreserve();
+      }
+      editor.addEventListener('blur', commit);
+      editor.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); editor.blur(); }
+        if (e.key === 'Escape') { e.preventDefault(); done = true; renderAllPreserve(); }
+      });
+      if (editor.tagName === 'SELECT') editor.addEventListener('change', () => editor.blur());
+    }
+
+    async function editRevenue(pid) {
+      const p = state.projects.find(x => x.id === pid);
+      if (!p) return;
+      const v = prompt(`${p.name} — 실 매출 (원)`, String(p.actual));
+      if (v === null) return;
+      const n = parseInt(v, 10);
+      if (isNaN(n) || n < 0) return;
+      const prev = p.actual;
+      p.actual = n;
+      if (sb && state.user) {
+        const { error } = await sb.from('projects').update({ actual_revenue: n }).eq('id', pid);
+        if (error) { alert('저장 실패: ' + error.message); p.actual = prev; }
+      }
+      save();
+      renderAll();
+    }
+
+    async function deleteProject(pid) {
+      if (!confirm('이 프로젝트를 삭제할까요?')) return;
+      if (sb && state.user) {
+        const { error } = await sb.from('projects').delete().eq('id', pid);
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+      }
+      state.projects = state.projects.filter(x => x.id !== pid);
+      save();
+      renderAll();
+    }
+
+    async function editMatch(mid) {
+      const m = state.matches.find(x => x.id === mid);
+      if (!m) return;
+      const update = {};
+      const newName = prompt(`인재 이름  (현재: ${m.name})`, m.name);
+      if (newName === null) return;
+      if (newName.trim() && newName.trim() !== m.name) update.name = newName.trim();
+      const newCompany = prompt(`기업명  (현재: ${m.company})`, m.company);
+      if (newCompany !== null && newCompany.trim() && newCompany.trim() !== m.company) update.company = newCompany.trim();
+      const newRole = prompt(`직무  (현재: ${m.role || '—'})`, m.role || '');
+      if (newRole !== null && newRole.trim() !== (m.role||'')) update.role = newRole.trim() || null;
+      const newStage = prompt(`단계 (lead / submitted / interview / confirmed / dropped)\n현재: ${m.stage}`, m.stage);
+      if (newStage !== null) {
+        const v = newStage.trim();
+        if (['lead','submitted','interview','confirmed','dropped'].includes(v) && v !== m.stage) update.stage = v;
+      }
+      const newSource = prompt(`소스 (웍스피어 / 자체발굴)\n현재: ${m.source}`, m.source);
+      if (newSource !== null) {
+        const v = newSource.trim();
+        if (['웍스피어','자체발굴'].includes(v) && v !== m.source) update.source = v;
+      }
+      const newDate = prompt(`날짜 YYYY-MM-DD  (현재: ${m.date})`, m.date);
+      if (newDate !== null && /^\d{4}-\d{2}-\d{2}$/.test(newDate.trim()) && newDate.trim() !== m.date) update.date = newDate.trim();
+      if (Object.keys(update).length === 0) { renderAll(); return; }
+      if (sb && state.user) {
+        const { data, error } = await sb.from('matches').update(update).eq('id', mid).select().single();
+        if (error) { alert('수정 실패: ' + error.message); return; }
+        Object.assign(m, data);
+      } else {
+        Object.assign(m, update);
+      }
+      save();
+      renderAll();
+    }
+
+    async function deleteMatch(mid) {
+      const m = state.matches.find(x => x.id === mid);
+      if (!m) return;
+      if (!confirm(`"${m.name}" 매칭을 삭제할까요?`)) return;
+      if (sb && state.user) {
+        const { error } = await sb.from('matches').delete().eq('id', mid);
+        if (error) { alert('삭제 실패: ' + error.message); return; }
+      }
+      state.matches = state.matches.filter(x => x.id !== mid);
+      save();
+      renderAll();
+    }
+
+    async function saveTargets(form) {
+      if (!isAdmin()) { alert('관리자/매니저만 목표를 편집할 수 있어요'); return; }
+      const newTargets = {};
+      const upserts = [];
+      $$('#targetEditorGrid input[data-week]').forEach(inp => {
+        const w = parseInt(inp.dataset.week, 10);
+        const v = parseInt(inp.value, 10) || 0;
+        upserts.push({ year: state.year, week: w, target: v });
+        if (v > 0) newTargets[w] = v;
+      });
+      if (sb && state.user) {
+        const { error } = await sb.from('week_targets').upsert(upserts, { onConflict: 'year,week' });
+        if (error) { alert('저장 실패: ' + error.message); return; }
+      }
+      state.weekTargets = newTargets;
+      $('#target-editor').classList.add('hidden');
+      save();
+      renderAll();
+    }
+
+    function applyTargetPreset(preset) {
+      if (preset === 'even') {
+        for (let w = 1; w <= 52; w++) state.weekTargets[w] = 4;
+      } else if (preset === 'zero') {
+        state.weekTargets = {};
+      }
+      renderTargetEditor();
+    }
+
+    async function init() {
+      // ── 공통 폼/탭 핸들러 (모드 무관) ──
+      $$('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const t = tab.dataset.tab;
+          $$('.tab').forEach(x => x.classList.toggle('active', x === tab));
+          $$('.panel').forEach(x => x.classList.toggle('active', x.dataset.panel === t));
+        });
+      });
+      const matchForm = $('#match-form');
+      if (matchForm) {
+        matchForm.addEventListener('submit', e => { e.preventDefault(); addMatch(matchForm); });
+      }
+      const projectForm = $('#project-form');
+      if (projectForm) {
+        projectForm.addEventListener('submit', e => { e.preventDefault(); addProject(projectForm); });
+
+        // Emoji picker
+        const EMOJIS = ['✨','🚀','💡','🎯','📚','🎨','🍔','☕','🛒','📱','💼','🎓','🏢','🌐','📊','🤝','💰','📈','🎬','🎵','🌱','🔧','🧪','🏃'];
+        const picker = $('#emojiPicker');
+        const iconInput = projectForm.querySelector('input[name="icon"]');
+        const customInput = $('#customEmoji');
+        if (picker) {
+          picker.innerHTML = EMOJIS.map(e => `<button type="button" class="emoji-btn" data-emoji="${e}">${e}</button>`).join('');
+          const setSelected = (val) => {
+            iconInput.value = val;
+            picker.querySelectorAll('.emoji-btn').forEach(b => b.classList.toggle('selected', b.dataset.emoji === val));
+            if (![...EMOJIS].includes(val)) {
+              customInput.value = val;
+            } else {
+              customInput.value = '';
+            }
+          };
+          setSelected('✨');
+          picker.querySelectorAll('.emoji-btn').forEach(b => b.addEventListener('click', () => setSelected(b.dataset.emoji)));
+          customInput?.addEventListener('input', () => {
+            const v = customInput.value.trim();
+            if (v) {
+              iconInput.value = v;
+              picker.querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+            }
+          });
+        }
+      }
+      const targetForm = $('#target-editor');
+      if (targetForm) targetForm.addEventListener('submit', e => { e.preventDefault(); saveTargets(targetForm); });
+      $$('#target-editor [data-preset]').forEach(btn => btn.addEventListener('click', () => applyTargetPreset(btn.dataset.preset)));
+      $('#logoutBtn')?.addEventListener('click', () => {
+        if (LOCAL_MODE) {
+          if (!confirm('로컬 데이터 초기화하고 샘플로 되돌릴까요?')) return;
+          localStorage.removeItem(LOCAL_STORE);
+          location.reload();
+        } else {
+          logout();
+        }
+      });
+
+      // 내 계정 모달
+      const acctModal = $('#accountModal');
+      const showAcctMsg = (text, ok) => {
+        const m = $('#acctMsg');
+        m.textContent = text;
+        m.className = 'text-xs text-center rounded p-2 ' + (ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600');
+      };
+      $('#accountBtn')?.addEventListener('click', () => {
+        if (LOCAL_MODE) { alert('로컬 모드에서는 계정 변경이 의미 없음'); return; }
+        $('#acctName').value = state.profile?.name || '';
+        $('#acctEmail').value = state.user?.email || '';
+        $('#acctPwd').value = '';
+        $('#acctMsg').className = 'hidden';
+        acctModal.style.display = 'flex';
+      });
+      $('#accountClose')?.addEventListener('click', () => acctModal.style.display = 'none');
+      acctModal.addEventListener('click', e => { if (e.target === acctModal) acctModal.style.display = 'none'; });
+
+      $('#acctNameSave')?.addEventListener('click', async () => {
+        const name = $('#acctName').value.trim();
+        if (!name) return showAcctMsg('이름을 입력하세요', false);
+        const { error } = await sb.from('profiles').update({ name }).eq('id', state.user.id);
+        if (error) return showAcctMsg('실패: ' + error.message, false);
+        if (state.profile) state.profile.name = name;
+        showAcctMsg('이름 변경 완료', true);
+      });
+
+      $('#acctEmailSave')?.addEventListener('click', async () => {
+        const email = $('#acctEmail').value.trim();
+        if (!email) return showAcctMsg('이메일을 입력하세요', false);
+        const { error } = await sb.auth.updateUser({ email });
+        if (error) return showAcctMsg('실패: ' + error.message, false);
+        await sb.from('profiles').update({ email }).eq('id', state.user.id);
+        showAcctMsg('이메일 변경 요청 완료. 확인 링크가 갈 수 있음', true);
+      });
+
+      // ── 커뮤니티 modal/form wire-up ──
+      const channelModal = $('#channelModal');
+      $('#addChannelBtn')?.addEventListener('click', () => { channelModal.style.display = 'flex'; });
+      $('#channelClose')?.addEventListener('click', () => { channelModal.style.display = 'none'; });
+      $('#channelCancel')?.addEventListener('click', () => { channelModal.style.display = 'none'; });
+      channelModal?.addEventListener('click', e => { if (e.target === channelModal) channelModal.style.display = 'none'; });
+      $('#channelForm')?.addEventListener('submit', e => { e.preventDefault(); addChannel(e.target); });
+
+      $('#commTrackerEditBtn')?.addEventListener('click', () => openTrackerForm());
+      $('#commTrackerCancel')?.addEventListener('click', () => $('#commTrackerForm').classList.add('hidden'));
+      $('#commTrackerForm')?.addEventListener('submit', e => { e.preventDefault(); saveTracker(e.target); });
+
+      const postModal = $('#postModal');
+      $('#postClose')?.addEventListener('click', () => { postModal.style.display = 'none'; });
+      $('#postCancel')?.addEventListener('click', () => { postModal.style.display = 'none'; });
+      postModal?.addEventListener('click', e => { if (e.target === postModal) postModal.style.display = 'none'; });
+      $('#postForm')?.addEventListener('submit', e => { e.preventDefault(); savePost(e.target); });
+      $('#postDelete')?.addEventListener('click', () => {
+        const id = $('#postForm').querySelector('[name="postId"]').value;
+        if (id && confirm('삭제할까요?')) deletePost(id);
+      });
+
+      $('#acctPwdSave')?.addEventListener('click', async () => {
+        const password = $('#acctPwd').value;
+        if (!password || password.length < 6) return showAcctMsg('6자 이상 비밀번호 입력', false);
+        const { error } = await sb.auth.updateUser({ password });
+        if (error) return showAcctMsg('실패: ' + error.message, false);
+        $('#acctPwd').value = '';
+        showAcctMsg('비밀번호 변경 완료', true);
+      });
+
+      // ── 모드 분기 ──
+      if (LOCAL_MODE) {
+        // 로컬 데모 모드: localStorage에서 복원, 없으면 샘플
+        try {
+          const raw = localStorage.getItem(LOCAL_STORE);
+          state = raw ? JSON.parse(raw) : sampleSeed();
+        } catch(e) { state = sampleSeed(); }
+        if (!state.profile) state.profile = { role: 'admin', name: '로컬' };
+        $('#userEmail').textContent = '로컬 데모';
+        $('#userRole').textContent = '데모';
+        $('#logoutBtn').textContent = '↺ 초기화';
+        $('#accountBtn')?.classList.add('hidden');
+        $('#loginScreen').style.display = 'none';
+        const matchDate = matchForm?.querySelector('input[name="date"]');
+        if (matchDate) matchDate.value = state.today;
+        const projDeadline = projectForm?.querySelector('input[name="deadline"]');
+        if (projDeadline) {
+          const lastDay = new Date(state.year, state.currentMonth, 0).getDate();
+          projDeadline.value = `${state.year}-${String(state.currentMonth).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+        }
+        renderAll();
+        return;
+      }
+
+      // ── Supabase 모드 ──
+      // 폼 핸들러 먼저 wire (로그인 화면이 뜰 경우 대비)
+      $('#loginForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        $('#loginError').classList.add('hidden');
+        const fd = new FormData(e.target);
+        try {
+          await login(fd.get('email'), fd.get('password'));
+        } catch (err) {
+          $('#loginError').textContent = '로그인 실패: ' + (err.message || err);
+          $('#loginError').classList.remove('hidden');
+        }
+      });
+
+      // 세션 확인 → 있으면 바로 대시보드, 없을 때만 로그인 화면
+      const user = await checkSession();
+      if (user) {
+        await fetchAll();
+        subscribeRealtime();
+        const matchDate = matchForm?.querySelector('input[name="date"]');
+        if (matchDate) matchDate.value = state.today;
+        renderAll();
+      } else {
+        $('#loginScreen').style.display = 'flex';
+      }
+
+      // 세션 만료/변경 시 자동 처리
+      sb.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT' || (!session && state.user)) {
+          state.user = null;
+          state.profile = null;
+          $('#loginScreen').style.display = 'flex';
+        }
+      });
+    }
+
+    if (document.readyState !== 'loading') init();
+    else document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>
