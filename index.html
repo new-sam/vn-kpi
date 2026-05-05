@@ -104,6 +104,13 @@
 
     /* Input ring */
     input:focus, textarea:focus, select:focus { outline: none; box-shadow: 0 0 0 2px #18181b14; border-color: var(--ink); }
+
+    /* Language switcher (segmented) */
+    .lang-switch { display: inline-flex; align-items: center; gap: 2px; background: #f0f0ee; border-radius: 999px; padding: 2px; }
+    .lang-opt { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 500; color: var(--ink-muted); transition: background .15s, color .15s, box-shadow .15s; cursor: pointer; line-height: 1; }
+    .lang-opt:hover { color: var(--ink-soft); }
+    .lang-opt.active { background: #ffffff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px var(--border); }
+    .lang-opt .flag { font-size: 13px; line-height: 1; }
   </style>
 </head>
 <body class="min-h-screen">
@@ -113,20 +120,26 @@
     <form id="loginForm" class="w-80 space-y-3 p-6">
       <div class="text-center mb-4">
         <div class="w-10 h-10 mx-auto rounded-lg bg-zinc-900 text-white text-sm font-bold flex items-center justify-center mb-3">V</div>
-        <h2 class="text-lg font-semibold">VN KPI 로그인</h2>
-        <p class="text-xs ink-muted mt-1">사내 이메일 + 비밀번호</p>
+        <h2 class="text-lg font-semibold" data-i18n="login.title">VN KPI 로그인</h2>
+        <p class="text-xs ink-muted mt-1" data-i18n="login.subtitle">사내 이메일 + 비밀번호</p>
       </div>
-      <input name="email" type="email" placeholder="이메일 (예: kee@likelion.net)" required autocomplete="email"
+      <input name="email" type="email" placeholder="이메일 (예: kee@likelion.net)" data-i18n-placeholder="login.emailPh" required autocomplete="email"
              class="w-full text-sm border hairline rounded-md px-3 py-2.5" />
-      <input name="password" type="password" placeholder="비밀번호" required autocomplete="current-password"
+      <input name="password" type="password" placeholder="비밀번호" data-i18n-placeholder="login.passwordPh" required autocomplete="current-password"
              class="w-full text-sm border hairline rounded-md px-3 py-2.5" />
-      <button type="submit" class="w-full text-sm bg-zinc-900 text-white rounded-md py-2.5 hover:bg-zinc-800 font-medium">로그인</button>
+      <button type="submit" class="w-full text-sm bg-zinc-900 text-white rounded-md py-2.5 hover:bg-zinc-800 font-medium" data-i18n="login.submit">로그인</button>
       <div id="loginError" class="hidden text-xs text-red-600 text-center"></div>
       <div class="text-xs ink-muted text-center pt-2 border-t hairline mt-3">
-        초기 비번: <code class="bg-zinc-100 px-1 rounded">vnkpi2026!</code> · 로그인 후 변경 가능
+        <span data-i18n="login.hintPrefix">초기 비번:</span> <code class="bg-zinc-100 px-1 rounded">vnkpi2026!</code> <span data-i18n="login.hintSuffix">· 로그인 후 변경 가능</span>
       </div>
-      <div id="loginSetupHint" class="hidden text-xs ink-muted text-center pt-2">
+      <div id="loginSetupHint" class="hidden text-xs ink-muted text-center pt-2" data-i18n="login.setupHint">
         Supabase 미설정
+      </div>
+      <div class="flex justify-center pt-2">
+        <div id="langToggleLogin" class="lang-switch">
+          <button type="button" class="lang-opt" data-lang="ko"><span class="flag">🇰🇷</span><span>한</span></button>
+          <button type="button" class="lang-opt" data-lang="vi"><span class="flag">🇻🇳</span><span>VN</span></button>
+        </div>
       </div>
     </form>
   </div>
@@ -143,8 +156,12 @@
       <div class="flex items-center gap-2">
         <span class="text-xs ink-muted" id="userEmail"></span>
         <span class="pill bg-zinc-100 text-zinc-700 text-[10px]" id="userRole"></span>
-        <button id="accountBtn" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1.5 rounded-md hover:bg-zinc-100" title="내 계정">내 계정</button>
-        <button id="logoutBtn" class="text-xs ink-soft hover:text-red-600 px-2 py-1.5 rounded-md hover:bg-red-50" title="로그아웃">로그아웃</button>
+        <div id="langToggle" class="lang-switch ml-1" title="Language / Ngôn ngữ">
+          <button type="button" class="lang-opt" data-lang="ko"><span class="flag">🇰🇷</span><span>한</span></button>
+          <button type="button" class="lang-opt" data-lang="vi"><span class="flag">🇻🇳</span><span>VN</span></button>
+        </div>
+        <button id="accountBtn" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1.5 rounded-md hover:bg-zinc-100" title="내 계정" data-i18n="nav.account" data-i18n-title="nav.account">내 계정</button>
+        <button id="logoutBtn" class="text-xs ink-soft hover:text-red-600 px-2 py-1.5 rounded-md hover:bg-red-50" title="로그아웃" data-i18n="nav.logout" data-i18n-title="nav.logout">로그아웃</button>
       </div>
     </div>
   </header>
@@ -153,30 +170,30 @@
   <div id="accountModal" class="fixed inset-0 z-40 bg-black/30 items-center justify-center" style="display:none;">
     <div class="bg-white rounded-lg w-96 p-6 space-y-4">
       <div class="flex items-center justify-between">
-        <h3 class="text-base font-semibold">내 계정</h3>
+        <h3 class="text-base font-semibold" data-i18n="account.title">내 계정</h3>
         <button id="accountClose" class="text-zinc-500 hover:text-zinc-900 text-xl leading-none">&times;</button>
       </div>
       <div class="space-y-3">
         <div>
-          <label class="text-xs ink-muted block mb-1">이름</label>
+          <label class="text-xs ink-muted block mb-1" data-i18n="account.name">이름</label>
           <div class="flex gap-2">
             <input id="acctName" type="text" class="flex-1 text-sm border hairline rounded-md px-3 py-2" />
-            <button id="acctNameSave" class="text-xs bg-zinc-900 text-white rounded-md px-3 hover:bg-zinc-800">저장</button>
+            <button id="acctNameSave" class="text-xs bg-zinc-900 text-white rounded-md px-3 hover:bg-zinc-800" data-i18n="account.save">저장</button>
           </div>
         </div>
         <div>
-          <label class="text-xs ink-muted block mb-1">이메일</label>
+          <label class="text-xs ink-muted block mb-1" data-i18n="account.email">이메일</label>
           <div class="flex gap-2">
             <input id="acctEmail" type="email" class="flex-1 text-sm border hairline rounded-md px-3 py-2" />
-            <button id="acctEmailSave" class="text-xs bg-zinc-900 text-white rounded-md px-3 hover:bg-zinc-800">변경</button>
+            <button id="acctEmailSave" class="text-xs bg-zinc-900 text-white rounded-md px-3 hover:bg-zinc-800" data-i18n="account.change">변경</button>
           </div>
-          <p class="text-[10px] ink-muted mt-1">변경 시 새 이메일 확인 링크가 발송될 수 있음</p>
+          <p class="text-[10px] ink-muted mt-1" data-i18n="account.emailNote">변경 시 새 이메일 확인 링크가 발송될 수 있음</p>
         </div>
         <div class="border-t hairline pt-3">
-          <label class="text-xs ink-muted block mb-1">새 비밀번호</label>
+          <label class="text-xs ink-muted block mb-1" data-i18n="account.newPassword">새 비밀번호</label>
           <div class="flex gap-2">
-            <input id="acctPwd" type="password" placeholder="6자 이상" minlength="6" class="flex-1 text-sm border hairline rounded-md px-3 py-2" />
-            <button id="acctPwdSave" class="text-xs bg-zinc-900 text-white rounded-md px-3 hover:bg-zinc-800">변경</button>
+            <input id="acctPwd" type="password" placeholder="6자 이상" data-i18n-placeholder="account.passwordPh" minlength="6" class="flex-1 text-sm border hairline rounded-md px-3 py-2" />
+            <button id="acctPwdSave" class="text-xs bg-zinc-900 text-white rounded-md px-3 hover:bg-zinc-800" data-i18n="account.change">변경</button>
           </div>
         </div>
         <div id="acctMsg" class="hidden text-xs text-center rounded p-2"></div>
@@ -188,13 +205,13 @@
   <nav class="border-b hairline">
     <div class="max-w-[840px] mx-auto px-6 flex items-center gap-7">
       <div class="tab active" data-tab="ktc">
-        KTC 매칭 <span class="ink-muted tnum text-xs ml-1" id="tabKtcBadge">47/200</span>
+        <span data-i18n="tab.ktc">KTC 매칭</span> <span class="ink-muted tnum text-xs ml-1" id="tabKtcBadge">47/200</span>
       </div>
       <div class="tab" data-tab="biz">
-        신사업 <span class="ink-muted tnum text-xs ml-1" id="tabBizBadge">₩0/5M</span>
+        <span data-i18n="tab.biz">신사업</span> <span class="ink-muted tnum text-xs ml-1" id="tabBizBadge">₩0/5M</span>
       </div>
       <div class="tab" data-tab="community">
-        커뮤니티 <span class="ink-muted tnum text-xs ml-1" id="tabCommBadge">0/0</span>
+        <span data-i18n="tab.community">커뮤니티</span> <span class="ink-muted tnum text-xs ml-1" id="tabCommBadge">0/0</span>
       </div>
     </div>
   </nav>
@@ -207,13 +224,13 @@
       <!-- Hero: Year at a glance -->
       <div class="mb-12">
         <div class="flex items-center justify-between mb-4">
-          <div class="section-label">매칭 달성 현황</div>
-          <div class="text-xs ink-muted">2026 · 연간 목표 <span id="annualTargetEdit" class="cell-edit tnum" title="클릭하여 수정">200</span>명</div>
+          <div class="section-label" data-i18n="ktc.heroLabel">매칭 달성 현황</div>
+          <div class="text-xs ink-muted">2026 <span data-i18n="ktc.annualTargetLabelPrefix">· 연간 목표</span> <span id="annualTargetEdit" class="cell-edit tnum" title="클릭하여 수정" data-i18n-title="ktc.editClick">200</span><span data-i18n="ktc.annualTargetLabelSuffix">명</span></div>
         </div>
         <div class="grid grid-cols-3 gap-6 items-start">
           <!-- 연간 누적 -->
           <div>
-            <div class="text-[11px] ink-muted mb-1">연간 누적</div>
+            <div class="text-[11px] ink-muted mb-1" data-i18n="ktc.annualSum">연간 누적</div>
             <div class="flex items-baseline gap-2">
               <span class="text-4xl font-semibold tnum tracking-tight" id="ktcAnnualNum">0</span>
               <span class="text-lg ink-muted tnum">/ <span id="ktcAnnualTarget">200</span></span>
@@ -222,7 +239,7 @@
           </div>
           <!-- 이번 달 -->
           <div class="border-l hairline pl-6">
-            <div class="text-[11px] ink-muted mb-1">이번 달 <span id="ktcMonthNo">—월</span></div>
+            <div class="text-[11px] ink-muted mb-1"><span data-i18n="ktc.thisMonth">이번 달</span> <span id="ktcMonthNo">—월</span></div>
             <div class="flex items-baseline gap-2">
               <span class="text-4xl font-semibold tnum tracking-tight" id="ktcMonthVal">0</span>
               <span class="text-lg ink-muted tnum">/ <span id="ktcMonthTarget">0</span></span>
@@ -231,7 +248,7 @@
           </div>
           <!-- 이번 주 -->
           <div class="border-l hairline pl-6">
-            <div class="text-[11px] ink-muted mb-1">이번 주 <span id="ktcWeekNo">W—</span> <span id="ktcWeekRange"></span></div>
+            <div class="text-[11px] ink-muted mb-1"><span data-i18n="ktc.thisWeek">이번 주</span> <span id="ktcWeekNo">W—</span> <span id="ktcWeekRange"></span></div>
             <div class="flex items-baseline gap-2">
               <span class="text-4xl font-semibold tnum tracking-tight" id="ktcWeekVal">0</span>
               <span class="text-lg ink-muted tnum">/ <span id="ktcWeekTarget">0</span></span>
@@ -263,21 +280,21 @@
             <!-- target + actual lines drawn by JS based on projectStart -->
             <g id="chart-target"></g>
             <g id="chart-actual"></g>
-            <text x="516" y="22" font-size="9" fill="#a1a1aa" text-anchor="end" font-family="Pretendard">목표 200</text>
+            <text x="516" y="22" font-size="9" fill="#a1a1aa" text-anchor="end" font-family="Pretendard" data-i18n="ktc.targetLine">목표 200</text>
             <!-- month labels -->
             <g font-size="9" fill="#a1a1aa" text-anchor="middle" font-family="Pretendard">
-              <text x="60" y="200">1월</text>
-              <text x="100" y="200">2월</text>
-              <text x="140" y="200">3월</text>
-              <text x="180" y="200">4월</text>
-              <text x="220" y="200">5월</text>
-              <text x="260" y="200">6월</text>
-              <text x="300" y="200">7월</text>
-              <text x="340" y="200">8월</text>
-              <text x="380" y="200">9월</text>
-              <text x="420" y="200">10월</text>
-              <text x="460" y="200">11월</text>
-              <text x="500" y="200">12월</text>
+              <text x="60" y="200" data-i18n="month.1">1월</text>
+              <text x="100" y="200" data-i18n="month.2">2월</text>
+              <text x="140" y="200" data-i18n="month.3">3월</text>
+              <text x="180" y="200" data-i18n="month.4">4월</text>
+              <text x="220" y="200" data-i18n="month.5">5월</text>
+              <text x="260" y="200" data-i18n="month.6">6월</text>
+              <text x="300" y="200" data-i18n="month.7">7월</text>
+              <text x="340" y="200" data-i18n="month.8">8월</text>
+              <text x="380" y="200" data-i18n="month.9">9월</text>
+              <text x="420" y="200" data-i18n="month.10">10월</text>
+              <text x="460" y="200" data-i18n="month.11">11월</text>
+              <text x="500" y="200" data-i18n="month.12">12월</text>
             </g>
           </svg>
         </div>
@@ -285,20 +302,20 @@
         <!-- Legend -->
         <div class="mt-3 flex items-center justify-between text-xs">
           <div class="flex items-center gap-4 ink-muted">
-            <span class="flex items-center gap-1.5"><span class="block w-4 h-px bg-zinc-900" style="height: 2px;"></span>실적</span>
-            <span class="flex items-center gap-1.5"><span class="block w-4 border-t border-dashed border-zinc-400"></span>목표</span>
+            <span class="flex items-center gap-1.5"><span class="block w-4 h-px bg-zinc-900" style="height: 2px;"></span><span data-i18n="ktc.legendActual">실적</span></span>
+            <span class="flex items-center gap-1.5"><span class="block w-4 border-t border-dashed border-zinc-400"></span><span data-i18n="ktc.legendTarget">목표</span></span>
           </div>
-          <div class="ink-muted" id="chartSummary">데이터 없음</div>
+          <div class="ink-muted" id="chartSummary" data-i18n="ktc.chartNoData">데이터 없음</div>
         </div>
       </div>
 
       <!-- Weekly tracker (drill-down) -->
       <div class="mb-10">
         <div class="flex items-center justify-between mb-3">
-          <div class="section-label">월별 · 주차별 상세</div>
+          <div class="section-label" data-i18n="ktc.weeklyTitle">월별 · 주차별 상세</div>
           <button id="targetEditBtn" onclick="document.getElementById('target-editor').classList.toggle('hidden')" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100 flex items-center gap-1 hidden">
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            목표 편집
+            <span data-i18n="ktc.targetEdit">목표 편집</span>
           </button>
         </div>
 
@@ -306,12 +323,12 @@
         <form id="target-editor" class="hidden mb-3 p-5 bg-white border hairline rounded-lg" onsubmit="return false">
           <div class="flex items-center justify-between mb-4">
             <div>
-              <div class="text-sm font-medium">월별 · 주차별 목표 인원</div>
-              <div class="text-[11px] ink-muted mt-0.5">월 클릭으로 펼치기 · 주차 입력 / 빈 값은 0</div>
+              <div class="text-sm font-medium" data-i18n="ktc.targetEditorTitle">월별 · 주차별 목표 인원</div>
+              <div class="text-[11px] ink-muted mt-0.5" data-i18n="ktc.targetEditorHint">월 클릭으로 펼치기 · 주차 입력 / 빈 값은 0</div>
             </div>
             <div class="flex gap-1.5">
-              <button type="button" data-preset="even" class="text-[11px] px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200">균등 분배</button>
-              <button type="button" data-preset="zero" class="text-[11px] px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200">전부 0</button>
+              <button type="button" data-preset="even" class="text-[11px] px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200" data-i18n="ktc.presetEven">균등 분배</button>
+              <button type="button" data-preset="zero" class="text-[11px] px-2.5 py-1 rounded-md bg-zinc-100 hover:bg-zinc-200" data-i18n="ktc.presetZero">전부 0</button>
             </div>
           </div>
           <div id="targetEditorGrid" class="space-y-3">
@@ -319,12 +336,12 @@
           </div>
           <div class="flex items-center justify-between mt-5 pt-4 border-t hairline">
             <div class="text-xs">
-              합계 <span class="font-semibold tnum" id="targetSumVal">0</span><span class="ink-muted">명</span>
+              <span data-i18n="ktc.sumLabel">합계</span> <span class="font-semibold tnum" id="targetSumVal">0</span><span class="ink-muted" data-i18n="ktc.peopleUnit">명</span>
               <span class="ml-2 pill bg-zinc-100 text-zinc-700" id="targetSumPill">목표 200 (-200)</span>
             </div>
             <div class="flex gap-2">
-              <button type="button" onclick="document.getElementById('target-editor').classList.add('hidden')" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100">취소</button>
-              <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800">저장</button>
+              <button type="button" onclick="document.getElementById('target-editor').classList.add('hidden')" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100" data-i18n="ktc.cancel">취소</button>
+              <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800" data-i18n="ktc.save">저장</button>
             </div>
           </div>
         </form>
@@ -333,69 +350,69 @@
           <!-- rendered by JS -->
         </div>
         <div class="flex items-center justify-between mt-2 px-1">
-          <button class="text-xs ink-muted hover:text-zinc-900">← 이전 분기</button>
-          <button class="text-xs ink-soft hover:text-zinc-900">전체 52주 보기 →</button>
+          <button class="text-xs ink-muted hover:text-zinc-900" data-i18n="ktc.prevQuarter">← 이전 분기</button>
+          <button class="text-xs ink-soft hover:text-zinc-900" data-i18n="ktc.viewAllWeeks">전체 52주 보기 →</button>
         </div>
       </div>
 
       <!-- Recent list (with inline + at bottom) -->
       <div class="mb-4">
         <div class="flex items-center justify-between mb-3">
-          <div class="section-label">최근 매칭</div>
-          <span class="text-xs ink-soft" id="recentMatchCount">최근 0건</span>
+          <div class="section-label" data-i18n="ktc.recentTitle">최근 매칭</div>
+          <span class="text-xs ink-soft" id="recentMatchCount" data-i18n="ktc.recent0">최근 0건</span>
         </div>
         <div class="bg-white border hairline rounded-lg overflow-hidden" id="recentMatches">
           <!-- rendered by JS, inline + at bottom -->
         </div>
-        <div class="text-[10px] ink-muted mt-2 px-1">각 항목 (날짜 · 이름 · 기업 · 직무 · 소스 · 단계) 더블클릭 → 인풋으로 바뀝니다 · Enter 저장 · Esc 취소</div>
+        <div class="text-[10px] ink-muted mt-2 px-1" data-i18n="ktc.recentHelp">각 항목 (날짜 · 이름 · 기업 · 직무 · 소스 · 단계) 더블클릭 → 인풋으로 바뀝니다 · Enter 저장 · Esc 취소</div>
       </div>
 
       <!-- Match form (opens when inline + clicked) -->
       <form id="match-form" class="hidden mb-12 p-4 bg-white border hairline rounded-lg space-y-3" onsubmit="return false">
-        <div class="text-xs font-medium mb-2">새 매칭 추가</div>
+        <div class="text-xs font-medium mb-2" data-i18n="ktc.formTitle">새 매칭 추가</div>
         <div class="grid grid-cols-2 gap-2.5">
-          <input name="name" placeholder="인재 이름 *" required class="text-sm border hairline rounded-md px-3 py-2" />
-          <input name="company" placeholder="기업명 *" required class="text-sm border hairline rounded-md px-3 py-2" />
-          <input name="role" placeholder="직무" class="text-sm border hairline rounded-md px-3 py-2" />
+          <input name="name" placeholder="인재 이름 *" data-i18n-placeholder="ktc.formNamePh" required class="text-sm border hairline rounded-md px-3 py-2" />
+          <input name="company" placeholder="기업명 *" data-i18n-placeholder="ktc.formCompanyPh" required class="text-sm border hairline rounded-md px-3 py-2" />
+          <input name="role" placeholder="직무" data-i18n-placeholder="ktc.formRolePh" class="text-sm border hairline rounded-md px-3 py-2" />
           <input name="date" type="date" class="text-sm border hairline rounded-md px-3 py-2" />
           <select name="source" class="text-sm border hairline rounded-md px-3 py-2">
-            <option value="웍스피어">소스: 웍스피어 (리드)</option>
-            <option value="자체발굴">소스: 자체 발굴 (리드 X)</option>
+            <option value="웍스피어" data-i18n="ktc.formSourceWsp">소스: 웍스피어 (리드)</option>
+            <option value="자체발굴" data-i18n="ktc.formSourceSelf">소스: 자체 발굴 (리드 X)</option>
           </select>
           <select name="stage" class="text-sm border hairline rounded-md px-3 py-2">
-            <option value="lead">단계: 리드</option>
-            <option value="submitted">단계: 서류 통과</option>
-            <option value="interview">단계: 인터뷰</option>
-            <option value="confirmed">단계: 확정 매칭</option>
-            <option value="dropped">단계: 드롭</option>
+            <option value="lead" data-i18n="ktc.formStageLead">단계: 리드</option>
+            <option value="submitted" data-i18n="ktc.formStageSubmitted">단계: 서류 통과</option>
+            <option value="interview" data-i18n="ktc.formStageInterview">단계: 인터뷰</option>
+            <option value="confirmed" data-i18n="ktc.formStageConfirmed">단계: 확정 매칭</option>
+            <option value="dropped" data-i18n="ktc.formStageDropped">단계: 드롭</option>
           </select>
         </div>
         <div class="flex justify-end gap-2 pt-1">
-          <button type="button" class="text-xs ink-soft px-3 py-1.5 rounded-md hover:bg-zinc-100" onclick="document.getElementById('match-form').classList.add('hidden')">취소</button>
-          <button type="submit" class="text-xs bg-zinc-900 text-white px-3 py-1.5 rounded-md hover:bg-zinc-800">저장 ⏎</button>
+          <button type="button" class="text-xs ink-soft px-3 py-1.5 rounded-md hover:bg-zinc-100" onclick="document.getElementById('match-form').classList.add('hidden')" data-i18n="ktc.cancel">취소</button>
+          <button type="submit" class="text-xs bg-zinc-900 text-white px-3 py-1.5 rounded-md hover:bg-zinc-800" data-i18n="ktc.formSaveBtn">저장 ⏎</button>
         </div>
       </form>
 
       <!-- Core 3 metrics -->
       <details class="border-t hairline" open>
         <summary class="py-4 flex items-center gap-2 text-sm font-medium">
-          <span class="chev">›</span> 핵심 지표
-          <span class="ink-muted text-xs font-normal ml-1">리드 · 최종 매칭률 · 기업당 매칭</span>
+          <span class="chev">›</span> <span data-i18n="ktc.metricsTitle">핵심 지표</span>
+          <span class="ink-muted text-xs font-normal ml-1" data-i18n="ktc.metricsSubtitle">리드 · 최종 매칭률 · 기업당 매칭</span>
         </summary>
         <div class="pb-6 pt-2 grid grid-cols-3 gap-4">
 
           <!-- 1. 리드 -->
           <div class="p-4 rounded-lg border hairline bg-white">
-            <div class="text-xs ink-muted mb-1">리드</div>
-            <div class="text-[10px] ink-muted mb-3">웍스피어가 데려온 기업</div>
-            <div class="text-3xl font-semibold tnum"><span id="metricLeads">0</span><span class="text-base ink-muted ml-1">개사</span></div>
-            <div class="text-[11px] ink-muted mt-2" id="metricLeadsDetail">웍스피어 인입 누적</div>
+            <div class="text-xs ink-muted mb-1" data-i18n="ktc.metricLeads">리드</div>
+            <div class="text-[10px] ink-muted mb-3" data-i18n="ktc.metricLeadsHint">웍스피어가 데려온 기업</div>
+            <div class="text-3xl font-semibold tnum"><span id="metricLeads">0</span><span class="text-base ink-muted ml-1" data-i18n="ktc.metricLeadsUnit">개사</span></div>
+            <div class="text-[11px] ink-muted mt-2" id="metricLeadsDetail" data-i18n="ktc.metricLeadsDetail">웍스피어 인입 누적</div>
           </div>
 
           <!-- 2. 최종 매칭률 -->
           <div class="p-4 rounded-lg border hairline bg-white">
-            <div class="text-xs ink-muted mb-1">최종 매칭률</div>
-            <div class="text-[10px] ink-muted mb-3">매칭 ÷ 리드</div>
+            <div class="text-xs ink-muted mb-1" data-i18n="ktc.metricRate">최종 매칭률</div>
+            <div class="text-[10px] ink-muted mb-3" data-i18n="ktc.metricRateHint">매칭 ÷ 리드</div>
             <div class="text-3xl font-semibold tnum text-emerald-600"><span id="metricMatchRate">0</span><span class="text-base">%</span></div>
             <div class="bar mt-2" style="height: 3px"><span id="metricMatchRateBar" style="width: 0%; background: #10b981;"></span></div>
             <div class="text-[11px] ink-muted mt-2" id="metricMatchRateDetail">0 / 0 · 목표 33%</div>
@@ -403,9 +420,9 @@
 
           <!-- 3. 기업당 매칭 -->
           <div class="p-4 rounded-lg border hairline bg-white">
-            <div class="text-xs ink-muted mb-1">기업당 매칭</div>
-            <div class="text-[10px] ink-muted mb-3">매칭 ÷ 매칭 성사 기업</div>
-            <div class="text-3xl font-semibold tnum"><span id="metricPerCompany">0</span><span class="text-base ink-muted ml-1">명</span></div>
+            <div class="text-xs ink-muted mb-1" data-i18n="ktc.metricPerCompany">기업당 매칭</div>
+            <div class="text-[10px] ink-muted mb-3" data-i18n="ktc.metricPerCompanyHint">매칭 ÷ 매칭 성사 기업</div>
+            <div class="text-3xl font-semibold tnum"><span id="metricPerCompany">0</span><span class="text-base ink-muted ml-1" data-i18n="ktc.metricPerCompanyUnit">명</span></div>
             <div class="text-[11px] ink-muted mt-2" id="metricPerCompanyDetail">0매칭 / 0기업</div>
           </div>
 
@@ -422,7 +439,7 @@
       <div class="mb-8 bg-white border hairline rounded-xl p-6">
         <div class="flex items-end justify-between mb-3">
           <div>
-            <div class="text-xs ink-muted mb-1" id="bizMonthLabel">이번 달 매출</div>
+            <div class="text-xs ink-muted mb-1" id="bizMonthLabel" data-i18n="biz.thisMonthRev">이번 달 매출</div>
             <div class="flex items-baseline gap-2">
               <span class="text-5xl font-semibold tnum tracking-tight">₩<span id="bizMonthValNum">0</span></span>
               <span class="text-xl ink-muted tnum">/ <span id="bizMonthTargetNum">5M</span></span>
@@ -439,7 +456,7 @@
         </div>
         <!-- Annual mini -->
         <div class="flex items-center justify-between mt-3 text-[11px] ink-muted">
-          <span>연간 누적 <span class="tnum text-zinc-700"><span id="bizAnnualNum">0</span>M</span> / <span class="tnum"><span id="bizAnnualTargetNum">60M</span></span></span>
+          <span><span data-i18n="biz.annualSum">연간 누적</span> <span class="tnum text-zinc-700"><span id="bizAnnualNum">0</span>M</span> / <span class="tnum"><span id="bizAnnualTargetNum">60M</span></span></span>
           <span class="pill bg-zinc-100 text-zinc-600 text-[10px]" id="bizGapPill">연간 0%</span>
         </div>
       </div>
@@ -447,7 +464,7 @@
       <!-- Monthly list (annual view) -->
       <div class="mb-10">
         <div class="flex items-center justify-between mb-3">
-          <div class="section-label" id="monthListLabel">월별 시도</div>
+          <div class="section-label" id="monthListLabel" data-i18n="biz.monthListLabel">월별 시도</div>
           <div class="text-[11px] ink-muted" id="monthListMeta"></div>
         </div>
         <div class="month-list bg-white border hairline rounded-lg overflow-hidden" id="monthList">
@@ -458,31 +475,31 @@
 
       <!-- Hidden project form (triggered by inline + buttons) -->
       <form id="project-form" class="hidden mb-6 p-4 bg-white border hairline rounded-lg space-y-3" onsubmit="return false">
-        <div class="text-xs font-medium ink-muted mb-1">신사업 추가</div>
+        <div class="text-xs font-medium ink-muted mb-1" data-i18n="biz.formTitle">신사업 추가</div>
         <!-- Emoji picker -->
         <div class="flex items-center gap-1.5 flex-wrap">
-          <span class="text-[11px] ink-muted mr-1">아이콘</span>
+          <span class="text-[11px] ink-muted mr-1" data-i18n="biz.formIcon">아이콘</span>
           <div id="emojiPicker" class="flex items-center gap-1 flex-wrap"></div>
-          <input id="customEmoji" type="text" maxlength="2" placeholder="✏️" class="w-8 h-8 text-center text-base border hairline rounded-md" title="직접 입력" />
+          <input id="customEmoji" type="text" maxlength="2" placeholder="✏️" class="w-8 h-8 text-center text-base border hairline rounded-md" title="직접 입력" data-i18n-title="biz.formIconCustomTitle" />
         </div>
         <input name="icon" type="hidden" value="✨" />
         <div class="space-y-2.5">
           <!-- 1. 정의 -->
-          <input name="name" placeholder="프로젝트명 (예: VN 한인가게 결제 마케팅 솔루션)" required class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+          <input name="name" placeholder="프로젝트명 (예: VN 한인가게 결제 마케팅 솔루션)" data-i18n-placeholder="biz.formNamePh" required class="text-sm border hairline rounded-md px-3 py-2 w-full" />
 
           <!-- 2. 가설 블록 -->
           <div class="bg-zinc-50/50 border hairline rounded-md p-2.5 space-y-2">
-            <div class="text-[11px] font-medium ink-muted">가설 검증</div>
-            <input name="customer_segment" placeholder="타겟 고객 (예: VN 거주 한인 외식업 사장)" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
-            <textarea name="hypothesis" placeholder="가설 (예: 월 3만원 결제 도구를 도입하면 한 달에 30곳 유료 전환 가능)" rows="2" class="text-sm border hairline rounded-md px-3 py-2 w-full"></textarea>
-            <input name="success_metric" placeholder="검증 지표 (예: 유료 전환 24곳 / 한 달간)" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+            <div class="text-[11px] font-medium ink-muted" data-i18n="biz.formHypoLabel">가설 검증</div>
+            <input name="customer_segment" placeholder="타겟 고객 (예: VN 거주 한인 외식업 사장)" data-i18n-placeholder="biz.formCustomerSegmentPh" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+            <textarea name="hypothesis" placeholder="가설 (예: 월 3만원 결제 도구를 도입하면 한 달에 30곳 유료 전환 가능)" data-i18n-placeholder="biz.formHypothesisPh" rows="2" class="text-sm border hairline rounded-md px-3 py-2 w-full"></textarea>
+            <input name="success_metric" placeholder="검증 지표 (예: 유료 전환 24곳 / 한 달간)" data-i18n-placeholder="biz.formMetricPh" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
           </div>
 
           <!-- 3. 일정 + 책임 -->
           <div class="grid grid-cols-3 gap-2">
             <label class="block">
-              <span class="text-[10px] ink-muted block mb-0.5">담당자</span>
-              <input name="owner" type="text" placeholder="이름 (예: 남영훈)" list="ownerSuggest" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
+              <span class="text-[10px] ink-muted block mb-0.5" data-i18n="biz.formOwner">담당자</span>
+              <input name="owner" type="text" placeholder="이름 (예: 남영훈)" data-i18n-placeholder="biz.formOwnerPh" list="ownerSuggest" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
               <datalist id="ownerSuggest">
                 <option value="남영훈"></option>
                 <option value="김호현"></option>
@@ -492,24 +509,24 @@
               </datalist>
             </label>
             <label class="block">
-              <span class="text-[10px] ink-muted block mb-0.5">시작일</span>
+              <span class="text-[10px] ink-muted block mb-0.5" data-i18n="biz.formStartDate">시작일</span>
               <input name="start_date" type="date" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
             </label>
             <label class="block">
-              <span class="text-[10px] ink-muted block mb-0.5">마감일</span>
+              <span class="text-[10px] ink-muted block mb-0.5" data-i18n="biz.formDeadline">마감일</span>
               <input name="deadline" type="date" class="text-sm border hairline rounded-md px-3 py-2 w-full" />
             </label>
           </div>
 
           <!-- 4. 목표 -->
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">목표 매출 (원)</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="biz.formTargetRev">목표 매출 (원)</span>
             <input name="target" type="number" value="1000000" class="text-sm border hairline rounded-md px-3 py-2 w-full tnum" />
           </label>
         </div>
         <div class="flex justify-end gap-2 pt-1">
-          <button type="button" class="text-xs ink-soft px-3 py-1.5 rounded-md hover:bg-zinc-100" onclick="document.getElementById('project-form').classList.add('hidden')">취소</button>
-          <button type="submit" class="text-xs bg-zinc-900 text-white px-3 py-1.5 rounded-md hover:bg-zinc-800">등록 ⏎</button>
+          <button type="button" class="text-xs ink-soft px-3 py-1.5 rounded-md hover:bg-zinc-100" onclick="document.getElementById('project-form').classList.add('hidden')" data-i18n="biz.formCancel">취소</button>
+          <button type="submit" class="text-xs bg-zinc-900 text-white px-3 py-1.5 rounded-md hover:bg-zinc-800" data-i18n="biz.formRegister">등록 ⏎</button>
         </div>
       </form>
 
@@ -521,14 +538,14 @@
       <div class="mb-8 bg-white border hairline rounded-xl p-6">
         <div class="flex items-end justify-between mb-3">
           <div>
-            <div class="text-xs ink-muted mb-1">전체 팔로워</div>
+            <div class="text-xs ink-muted mb-1" data-i18n="comm.totalFollowers">전체 팔로워</div>
             <div class="flex items-baseline gap-2">
               <span class="text-5xl font-semibold tnum tracking-tight" id="commTotalNum">0</span>
               <span class="text-xl ink-muted tnum">/ <span id="commTotalTarget">0</span></span>
             </div>
           </div>
           <div class="text-right">
-            <div class="text-xs ink-muted mb-1">이번 주 증가 <span id="commWeekDelta" class="ink-soft">+0</span></div>
+            <div class="text-xs ink-muted mb-1"><span data-i18n="comm.weekDelta">이번 주 증가</span> <span id="commWeekDelta" class="ink-soft">+0</span></div>
             <div class="text-3xl font-bold tnum" id="commTotalPct">0%</div>
           </div>
         </div>
@@ -540,8 +557,8 @@
       <!-- 채널 카드 -->
       <div class="mb-8">
         <div class="flex items-center justify-between mb-3">
-          <div class="section-label">채널</div>
-          <button id="addChannelBtn" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100">+ 채널 추가</button>
+          <div class="section-label" data-i18n="comm.channels">채널</div>
+          <button id="addChannelBtn" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100" data-i18n="comm.addChannel">+ 채널 추가</button>
         </div>
         <div id="commChannels" class="grid grid-cols-2 gap-3"></div>
       </div>
@@ -549,19 +566,19 @@
       <!-- 주차별 팔로워 트래커 -->
       <div class="mb-8">
         <div class="flex items-center justify-between mb-3">
-          <div class="section-label">주차별 팔로워 추이</div>
-          <button id="commTrackerEditBtn" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100 hidden">주차별 입력</button>
+          <div class="section-label" data-i18n="comm.weeklyTrend">주차별 팔로워 추이</div>
+          <button id="commTrackerEditBtn" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100 hidden" data-i18n="comm.weeklyInput">주차별 입력</button>
         </div>
         <div class="bg-white border hairline rounded-lg p-4">
           <svg id="commChart" viewBox="0 0 520 180" class="w-full" preserveAspectRatio="none" style="height: 180px;"></svg>
-          <div class="text-[10px] ink-muted mt-2 text-center" id="commChartLabel">주차별 합계 팔로워</div>
+          <div class="text-[10px] ink-muted mt-2 text-center" id="commChartLabel" data-i18n="comm.weeklyTotal">주차별 합계 팔로워</div>
         </div>
         <form id="commTrackerForm" class="hidden mt-3 p-4 bg-white border hairline rounded-lg" onsubmit="return false">
-          <div class="text-xs font-medium mb-2">주차별 팔로워 (현재 주: <span id="commTrackerCurWeek">—</span>)</div>
+          <div class="text-xs font-medium mb-2"><span data-i18n="comm.weeklyByWeek">주차별 팔로워 (현재 주:</span> <span id="commTrackerCurWeek">—</span>)</div>
           <div id="commTrackerInputs" class="space-y-2"></div>
           <div class="flex justify-end gap-2 mt-3 pt-3 border-t hairline">
-            <button type="button" id="commTrackerCancel" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100">취소</button>
-            <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800">저장</button>
+            <button type="button" id="commTrackerCancel" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100" data-i18n="comm.cancel">취소</button>
+            <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800" data-i18n="ktc.save">저장</button>
           </div>
         </form>
       </div>
@@ -569,7 +586,7 @@
       <!-- 컨텐츠 그리드 (이번 달) -->
       <div class="mb-8">
         <div class="flex items-center justify-between mb-3">
-          <div class="section-label">이번 달 콘텐츠 (<span id="commGridMonth">5</span>월)</div>
+          <div class="section-label"><span data-i18n="comm.thisMonthContent">이번 달 콘텐츠</span> (<span id="commGridMonth">5월</span>)</div>
           <div class="text-[11px] ink-muted" id="commGridMeta">0/9 발행</div>
         </div>
         <div id="commGrid" class="grid grid-cols-3 gap-1.5 bg-white border hairline rounded-lg p-2"></div>
@@ -582,28 +599,28 @@
   <div id="channelModal" class="fixed inset-0 z-40 bg-black/30 items-center justify-center" style="display:none;">
     <form id="channelForm" class="bg-white rounded-lg w-96 p-6 space-y-3" onsubmit="return false">
       <div class="flex items-center justify-between">
-        <h3 class="text-base font-semibold">채널 추가</h3>
+        <h3 class="text-base font-semibold" data-i18n="comm.modalChannelTitle">채널 추가</h3>
         <button id="channelClose" type="button" class="text-zinc-500 hover:text-zinc-900 text-xl leading-none">&times;</button>
       </div>
       <div class="space-y-2">
         <label class="block">
-          <span class="text-[10px] ink-muted block mb-0.5">이름</span>
-          <input name="name" type="text" required placeholder="예: VN 인스타그램" class="w-full text-sm border hairline rounded-md px-3 py-2" />
+          <span class="text-[10px] ink-muted block mb-0.5" data-i18n="comm.namePh">이름</span>
+          <input name="name" type="text" required placeholder="예: VN 인스타그램" data-i18n-placeholder="comm.examplePh" class="w-full text-sm border hairline rounded-md px-3 py-2" />
         </label>
         <div class="grid grid-cols-2 gap-2">
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">플랫폼</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="comm.platform">플랫폼</span>
             <select name="platform" class="w-full text-sm border hairline rounded-md px-3 py-2">
               <option value="instagram">📸 Instagram</option>
               <option value="facebook">📘 Facebook</option>
               <option value="tiktok">🎵 TikTok</option>
               <option value="youtube">📺 YouTube</option>
               <option value="threads">🧵 Threads</option>
-              <option value="other">📱 기타</option>
+              <option value="other" data-i18n="comm.platformOther">📱 기타</option>
             </select>
           </label>
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">@핸들</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="comm.handle">@핸들</span>
             <input name="handle" type="text" placeholder="@likelion_vn" class="w-full text-sm border hairline rounded-md px-3 py-2" />
           </label>
         </div>
@@ -613,18 +630,18 @@
         </label>
         <div class="grid grid-cols-2 gap-2">
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">현재 팔로워</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="comm.curFollowers">현재 팔로워</span>
             <input name="current_followers" type="number" min="0" value="0" class="w-full text-sm border hairline rounded-md px-3 py-2 tnum" />
           </label>
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">목표 팔로워</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="comm.targetFollowers">목표 팔로워</span>
             <input name="target_followers" type="number" min="0" value="1000" class="w-full text-sm border hairline rounded-md px-3 py-2 tnum" />
           </label>
         </div>
       </div>
       <div class="flex justify-end gap-2 pt-2">
-        <button type="button" id="channelCancel" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100">취소</button>
-        <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800">추가</button>
+        <button type="button" id="channelCancel" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100" data-i18n="comm.cancel">취소</button>
+        <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800" data-i18n="comm.add">추가</button>
       </div>
     </form>
   </div>
@@ -633,77 +650,747 @@
   <div id="postModal" class="fixed inset-0 z-40 bg-black/30 items-center justify-center" style="display:none;">
     <form id="postForm" class="bg-white rounded-lg w-[480px] p-6 space-y-3" onsubmit="return false">
       <div class="flex items-center justify-between">
-        <h3 class="text-base font-semibold">콘텐츠 <span id="postModalSlot" class="ink-muted text-sm">슬롯 1</span></h3>
+        <h3 class="text-base font-semibold"><span data-i18n="post.title">콘텐츠</span> <span id="postModalSlot" class="ink-muted text-sm">슬롯 1</span></h3>
         <button id="postClose" type="button" class="text-zinc-500 hover:text-zinc-900 text-xl leading-none">&times;</button>
       </div>
       <input name="postId" type="hidden" />
       <input name="slot" type="hidden" />
       <div class="space-y-2">
         <label class="block">
-          <span class="text-[10px] ink-muted block mb-0.5">제목</span>
-          <input name="title" type="text" placeholder="콘텐츠 제목" class="w-full text-sm border hairline rounded-md px-3 py-2" />
+          <span class="text-[10px] ink-muted block mb-0.5" data-i18n="post.titleLabel">제목</span>
+          <input name="title" type="text" placeholder="콘텐츠 제목" data-i18n-placeholder="post.titlePh" class="w-full text-sm border hairline rounded-md px-3 py-2" />
         </label>
         <label class="block">
-          <span class="text-[10px] ink-muted block mb-0.5">캡션 / 메모</span>
-          <textarea name="caption" rows="2" placeholder="설명·해시태그·기획 메모" class="w-full text-sm border hairline rounded-md px-3 py-2"></textarea>
+          <span class="text-[10px] ink-muted block mb-0.5" data-i18n="post.captionLabel">캡션 / 메모</span>
+          <textarea name="caption" rows="2" placeholder="설명·해시태그·기획 메모" data-i18n-placeholder="post.captionPh" class="w-full text-sm border hairline rounded-md px-3 py-2"></textarea>
         </label>
         <div class="grid grid-cols-3 gap-2">
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">채널</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="post.channel">채널</span>
             <select name="channel" class="w-full text-sm border hairline rounded-md px-3 py-2">
               <option value="">—</option>
               <option value="instagram">Instagram</option>
               <option value="facebook">Facebook</option>
               <option value="tiktok">TikTok</option>
-              <option value="all">전 채널</option>
+              <option value="all" data-i18n="comm.allChannels">전 채널</option>
             </select>
           </label>
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">발행일</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="post.publishDate">발행일</span>
             <input name="scheduled_date" type="date" class="w-full text-sm border hairline rounded-md px-3 py-2" />
           </label>
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">상태</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="post.status">상태</span>
             <select name="status" class="w-full text-sm border hairline rounded-md px-3 py-2">
-              <option value="planned">계획</option>
-              <option value="shooting">촬영</option>
-              <option value="editing">편집</option>
-              <option value="scheduled">예약</option>
-              <option value="published">발행</option>
-              <option value="cancelled">취소</option>
+              <option value="planned" data-i18n="post.statusPlanned">계획</option>
+              <option value="shooting" data-i18n="post.statusShooting">촬영</option>
+              <option value="editing" data-i18n="post.statusEditing">편집</option>
+              <option value="scheduled" data-i18n="post.statusScheduled">예약</option>
+              <option value="published" data-i18n="post.statusPublished">발행</option>
+              <option value="cancelled" data-i18n="post.statusCancelled">취소</option>
             </select>
           </label>
         </div>
         <label class="block">
-          <span class="text-[10px] ink-muted block mb-0.5">담당자</span>
-          <input name="owner" type="text" list="ownerSuggest" placeholder="이름" class="w-full text-sm border hairline rounded-md px-3 py-2" />
+          <span class="text-[10px] ink-muted block mb-0.5" data-i18n="post.owner">담당자</span>
+          <input name="owner" type="text" list="ownerSuggest" placeholder="이름" data-i18n-placeholder="post.ownerPh" class="w-full text-sm border hairline rounded-md px-3 py-2" />
         </label>
         <label class="block">
-          <span class="text-[10px] ink-muted block mb-0.5">썸네일 URL (선택)</span>
+          <span class="text-[10px] ink-muted block mb-0.5" data-i18n="post.thumbnail">썸네일 URL (선택)</span>
           <input name="thumbnail_url" type="url" placeholder="https://..." class="w-full text-sm border hairline rounded-md px-3 py-2" />
         </label>
         <div class="grid grid-cols-3 gap-2">
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">발행 URL</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="post.publishUrl">발행 URL</span>
             <input name="url" type="url" placeholder="https://..." class="col-span-2 w-full text-sm border hairline rounded-md px-3 py-2" />
           </label>
           <label class="block">
-            <span class="text-[10px] ink-muted block mb-0.5">좋아요</span>
+            <span class="text-[10px] ink-muted block mb-0.5" data-i18n="post.likes">좋아요</span>
             <input name="likes" type="number" min="0" value="0" class="w-full text-sm border hairline rounded-md px-3 py-2 tnum" />
           </label>
         </div>
       </div>
       <div class="flex justify-between pt-3 border-t hairline">
-        <button type="button" id="postDelete" class="text-xs ink-soft hover:text-red-600">삭제</button>
+        <button type="button" id="postDelete" class="text-xs ink-soft hover:text-red-600" data-i18n="post.delete">삭제</button>
         <div class="flex gap-2">
-          <button type="button" id="postCancel" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100">취소</button>
-          <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800">저장</button>
+          <button type="button" id="postCancel" class="text-xs px-3 py-1.5 rounded-md hover:bg-zinc-100" data-i18n="comm.cancel">취소</button>
+          <button type="submit" class="text-xs px-3 py-1.5 rounded-md bg-zinc-900 text-white hover:bg-zinc-800" data-i18n="ktc.save">저장</button>
         </div>
       </div>
     </form>
   </div>
   <script>
   (function(){
+    // ════════════════════════════════════════════════════════════
+    // I18N — Korean / Vietnamese translations
+    // ════════════════════════════════════════════════════════════
+    const I18N = {
+      ko: {
+        // Header / nav
+        'nav.account': '내 계정',
+        'nav.logout': '로그아웃',
+        'nav.reset': '↺ 초기화',
+        'nav.demo': '로컬 데모',
+        'nav.demoRole': '데모',
+        'nav.langToggle': '🇰🇷 KO',
+        'tab.ktc': 'KTC 매칭',
+        'tab.biz': '신사업',
+        'tab.community': '커뮤니티',
+
+        // Login
+        'login.title': 'VN KPI 로그인',
+        'login.subtitle': '사내 이메일 + 비밀번호',
+        'login.emailPh': '이메일 (예: kee@likelion.net)',
+        'login.passwordPh': '비밀번호',
+        'login.submit': '로그인',
+        'login.hintPrefix': '초기 비번:',
+        'login.hintSuffix': '· 로그인 후 변경 가능',
+        'login.setupHint': 'Supabase 미설정',
+        'login.fail': '로그인 실패: ',
+
+        // Account modal
+        'account.title': '내 계정',
+        'account.name': '이름',
+        'account.save': '저장',
+        'account.email': '이메일',
+        'account.change': '변경',
+        'account.emailNote': '변경 시 새 이메일 확인 링크가 발송될 수 있음',
+        'account.newPassword': '새 비밀번호',
+        'account.passwordPh': '6자 이상',
+        'account.localOnly': '로컬 모드에서는 계정 변경이 의미 없음',
+        'account.namePromptEmpty': '이름을 입력하세요',
+        'account.emailPromptEmpty': '이메일을 입력하세요',
+        'account.nameSaved': '이름 변경 완료',
+        'account.emailSaved': '이메일 변경 요청 완료. 확인 링크가 갈 수 있음',
+        'account.passwordShort': '6자 이상 비밀번호 입력',
+        'account.passwordSaved': '비밀번호 변경 완료',
+
+        // KTC
+        'ktc.heroLabel': '매칭 달성 현황',
+        'ktc.annualTargetLabelPrefix': '· 연간 목표',
+        'ktc.annualTargetLabelSuffix': '명',
+        'ktc.annualSum': '연간 누적',
+        'ktc.thisMonth': '이번 달',
+        'ktc.thisWeek': '이번 주',
+        'ktc.monthDash': '—월',
+        'ktc.annualPctPrefix': '연간 달성률',
+        'ktc.monthPctPrefix': '이번 달 달성률',
+        'ktc.weekPctPrefix': '이번 주 달성률',
+        'ktc.monthNoTarget': '이번 달 목표 미설정',
+        'ktc.weekNoTarget': '이번 주 목표 미설정',
+        'ktc.editClick': '클릭하여 수정',
+        'ktc.targetLine': '목표 200',
+        'ktc.legendActual': '실적',
+        'ktc.legendTarget': '목표',
+        'ktc.chartNoData': '데이터 없음',
+        'ktc.chartNoDataYet': '아직 데이터 없음',
+        'ktc.projectStart': '프로젝트 시작',
+
+        // KTC weekly tracker
+        'ktc.weeklyTitle': '월별 · 주차별 상세',
+        'ktc.targetEdit': '목표 편집',
+        'ktc.targetEditorTitle': '월별 · 주차별 목표 인원',
+        'ktc.targetEditorHint': '월 클릭으로 펼치기 · 주차 입력 / 빈 값은 0',
+        'ktc.presetEven': '균등 분배',
+        'ktc.presetZero': '전부 0',
+        'ktc.sumLabel': '합계',
+        'ktc.peopleUnit': '명',
+        'ktc.cancel': '취소',
+        'ktc.save': '저장',
+        'ktc.prevQuarter': '← 이전 분기',
+        'ktc.viewAllWeeks': '전체 52주 보기 →',
+        'ktc.thisWeekTag': '이번 주',
+        'ktc.weekProgressLabel': '이번 주 진행',
+        'ktc.weekSubmitted': '서류',
+        'ktc.weekInterview': '인터뷰',
+        'ktc.weekConfirmed': '확정',
+        'ktc.weeksSuffix': '주',
+
+        // Recent matches
+        'ktc.recentTitle': '최근 매칭',
+        'ktc.recent0': '최근 0건',
+        'ktc.recentHelp': '각 항목 (날짜 · 이름 · 기업 · 직무 · 소스 · 단계) 더블클릭 → 인풋으로 바뀝니다 · Enter 저장 · Esc 취소',
+        'ktc.colDate': '날짜',
+        'ktc.colName': '인재 이름',
+        'ktc.colCompany': '기업 · 직무',
+        'ktc.colSource': '소스',
+        'ktc.colStage': '단계',
+        'ktc.delete': '삭제',
+        'ktc.noMatchesYet': '아직 매칭이 없어요',
+        'ktc.addMatchInline': '매칭 추가',
+        'ktc.formTitle': '새 매칭 추가',
+        'ktc.formNamePh': '인재 이름 *',
+        'ktc.formCompanyPh': '기업명 *',
+        'ktc.formRolePh': '직무',
+        'ktc.formSourceWsp': '소스: 웍스피어 (리드)',
+        'ktc.formSourceSelf': '소스: 자체 발굴 (리드 X)',
+        'ktc.formStageLead': '단계: 리드',
+        'ktc.formStageSubmitted': '단계: 서류 통과',
+        'ktc.formStageInterview': '단계: 인터뷰',
+        'ktc.formStageConfirmed': '단계: 확정 매칭',
+        'ktc.formStageDropped': '단계: 드롭',
+        'ktc.formSaveBtn': '저장 ⏎',
+        'ktc.metricsTitle': '핵심 지표',
+        'ktc.metricsSubtitle': '리드 · 최종 매칭률 · 기업당 매칭',
+        'ktc.metricLeads': '리드',
+        'ktc.metricLeadsHint': '웍스피어가 데려온 기업',
+        'ktc.metricLeadsUnit': '개사',
+        'ktc.metricLeadsDetail': '웍스피어 인입 누적',
+        'ktc.metricRate': '최종 매칭률',
+        'ktc.metricRateHint': '매칭 ÷ 리드',
+        'ktc.metricPerCompany': '기업당 매칭',
+        'ktc.metricPerCompanyHint': '매칭 ÷ 매칭 성사 기업',
+        'ktc.metricPerCompanyUnit': '명',
+
+        // Stage / source pills
+        'stage.confirmed': '확정',
+        'stage.interview': '인터뷰',
+        'stage.submitted': '서류',
+        'stage.lead': '리드',
+        'stage.dropped': '드롭',
+        'source.worksphere': '웍스피어',
+        'source.self': '자체 발굴',
+
+        // Subtask statuses
+        'subtask.todo': '대기',
+        'subtask.doing': '진행중',
+        'subtask.blocked': '차단',
+        'subtask.on_hold': '보류',
+        'subtask.done': '완료',
+        'subtask.warnPrefix': '⚠ ',
+
+        // Project statuses
+        'pstatus.normal': '정상',
+        'pstatus.review': '검토',
+        'pstatus.danger': '위험',
+        'pstatus.delayed': '지연',
+        'pstatus.delayedTag': '⚠ 지연',
+        'pstatus.dangerTag': '⚠ ',
+
+        // Biz panel
+        'biz.thisMonthRev': '이번 달 매출',
+        'biz.thisMonthRevPrefix': '이번 달',
+        'biz.thisMonthRevSuffix': '월 매출',
+        'biz.dDash': 'D—',
+        'biz.dPast': '일 (마감 지남)',
+        'biz.annualPrefix': '연간',
+        'biz.annualSum': '연간 누적',
+        'biz.monthListLabel': '월별 시도',
+        'biz.monthListBase': '월별 시도 ·',
+        'biz.thisMonthTag': '이번 달',
+        'biz.empty': '비어있음 — 아래에서 신사업 추가',
+        'biz.normalLabel': '정상',
+        'biz.dangerLabel': '위험',
+        'biz.archiveOnly': '아카이브 매출만 기록됨',
+        'biz.noData': '데이터 없음',
+        'biz.projectsCount': '프로젝트',
+        'biz.projects': '프로젝트',
+        'biz.target': '목표',
+        'biz.editMonthTarget': '월 목표 수정',
+        'biz.targetEditTooltipPrefix': '클릭하여',
+        'biz.targetEditTooltipSuffix': '월 목표 수정',
+        'biz.daysOver': '일 지남',
+
+        // Project form
+        'biz.formTitle': '신사업 추가',
+        'biz.formIcon': '아이콘',
+        'biz.formIconCustomTitle': '직접 입력',
+        'biz.formNamePh': '프로젝트명 (예: VN 한인가게 결제 마케팅 솔루션)',
+        'biz.formHypoLabel': '가설 검증',
+        'biz.formCustomerSegmentPh': '타겟 고객 (예: VN 거주 한인 외식업 사장)',
+        'biz.formHypothesisPh': '가설 (예: 월 3만원 결제 도구를 도입하면 한 달에 30곳 유료 전환 가능)',
+        'biz.formMetricPh': '검증 지표 (예: 유료 전환 24곳 / 한 달간)',
+        'biz.formOwner': '담당자',
+        'biz.formOwnerPh': '이름 (예: 남영훈)',
+        'biz.formStartDate': '시작일',
+        'biz.formDeadline': '마감일',
+        'biz.formTargetRev': '목표 매출 (원)',
+        'biz.formCancel': '취소',
+        'biz.formRegister': '등록 ⏎',
+
+        // Project card / details
+        'proj.changeOwner': '담당자 변경',
+        'proj.changeDeadline': '마감일 변경',
+        'proj.milestonePrefix': '마일스톤',
+        'proj.editIcon': '클릭하여 이모지 변경',
+        'proj.editClick': '클릭하여 수정',
+        'proj.changeStatus': '클릭하여 상태 변경',
+        'proj.editRevenue': '클릭하여 매출 입력',
+        'proj.targetCustomer': '타겟 고객:',
+        'proj.targetCustomerAdd': '타겟 고객 추가',
+        'proj.hypothesis': '가설:',
+        'proj.hypothesisAdd': '가설 추가',
+        'proj.metric': '검증 지표:',
+        'proj.metricAdd': '검증 지표 추가',
+        'proj.method': '검증 방법',
+        'proj.milestoneCount': '마일스톤',
+        'proj.addMilestone': '+ 마일스톤',
+        'proj.milestoneExample': '예) 인터뷰 10건 · 베타 30곳 픽업 · 유료 전환 24곳 — 가설을 어떻게 검증할 건지 단계로 쪼개세요',
+        'proj.startDate': '시작일',
+        'proj.deadline': '마감일',
+        'proj.targetRev': '목표 매출',
+        'proj.actualRev': '실 매출',
+        'proj.delete': '프로젝트 삭제',
+        'proj.deleteConfirm': '이 프로젝트를 삭제할까요?',
+        'proj.addInline': '+ 신사업 추가',
+        'proj.newMilestone': '새 마일스톤',
+        'proj.tbd': '미정',
+        'proj.editStartDate': '클릭하여 시작일 수정',
+        'proj.editEndDate': '클릭하여 마감일 수정',
+        'proj.subStart': '시작',
+        'proj.subEnd': '마감',
+        'proj.revenuePrompt': '— 실 매출 (원)',
+
+        // Community
+        'comm.totalFollowers': '전체 팔로워',
+        'comm.weekDelta': '이번 주 증가',
+        'comm.channels': '채널',
+        'comm.addChannel': '+ 채널 추가',
+        'comm.weeklyTrend': '주차별 팔로워 추이',
+        'comm.weeklyInput': '주차별 입력',
+        'comm.weeklyTotal': '주차별 합계 팔로워',
+        'comm.weeklyByWeek': '주차별 팔로워 (현재 주:',
+        'comm.thisMonthContent': '이번 달 콘텐츠',
+        'comm.publishedSuffix': '발행',
+        'comm.noChannels': '채널 없음 — 우상단 + 채널 추가',
+        'comm.deleteChannelConfirm': '이 채널을 삭제할까요? (주차별 기록 함께 삭제됨)',
+        'comm.handleAdd': '@핸들 추가',
+        'comm.openLink': '열기 ↗',
+        'comm.targetEdit': '목표 수정',
+        'comm.chartNoRecord': '아직 기록 없음 — 우측 "주차별 입력" 버튼',
+        'comm.chartTotalCurrent': '합계 팔로워 (현재',
+        'comm.chartTarget': '목표',
+        'comm.titleEmpty': '제목 없음',
+        'comm.modalChannelTitle': '채널 추가',
+        'comm.namePh': '이름',
+        'comm.examplePh': '예: VN 인스타그램',
+        'comm.platform': '플랫폼',
+        'comm.handle': '@핸들',
+        'comm.curFollowers': '현재 팔로워',
+        'comm.targetFollowers': '목표 팔로워',
+        'comm.add': '추가',
+        'comm.cancel': '취소',
+        'comm.platformOther': '📱 기타',
+        'comm.allChannels': '전 채널',
+
+        // Post modal
+        'post.title': '콘텐츠',
+        'post.slot': '슬롯',
+        'post.titleLabel': '제목',
+        'post.titlePh': '콘텐츠 제목',
+        'post.captionLabel': '캡션 / 메모',
+        'post.captionPh': '설명·해시태그·기획 메모',
+        'post.channel': '채널',
+        'post.publishDate': '발행일',
+        'post.status': '상태',
+        'post.owner': '담당자',
+        'post.ownerPh': '이름',
+        'post.thumbnail': '썸네일 URL (선택)',
+        'post.publishUrl': '발행 URL',
+        'post.likes': '좋아요',
+        'post.delete': '삭제',
+        'post.deleteConfirm': '삭제할까요?',
+        'post.statusPlanned': '계획',
+        'post.statusShooting': '촬영',
+        'post.statusEditing': '편집',
+        'post.statusScheduled': '예약',
+        'post.statusPublished': '발행',
+        'post.statusCancelled': '취소',
+        'post.iconCustomPh': '직접 입력 (✏️)',
+
+        // Generic alerts
+        'alert.adminOnlyTarget': '어드민/매니저만 목표 편집 가능',
+        'alert.adminOnly': '어드민/매니저만 편집 가능',
+        'alert.adminOnlyTargetEditor': '관리자/매니저만 목표를 편집할 수 있어요',
+        'alert.failPrefix': '실패: ',
+        'alert.editFailPrefix': '수정 실패: ',
+        'alert.deleteFailPrefix': '삭제 실패: ',
+        'alert.saveFailPrefix': '저장 실패: ',
+        'alert.nameRequired': '이름 필수',
+        'alert.matchFieldsRequired': '인재명, 기업명 필수',
+        'alert.projectNameRequired': '프로젝트명 필수',
+        'alert.matchDeleteConfirmPre': '"',
+        'alert.matchDeleteConfirmPost': '" 매칭을 삭제할까요?',
+        'alert.localResetConfirm': '로컬 데이터 초기화하고 샘플로 되돌릴까요?',
+        'alert.matchNamePrompt': '인재 이름  (현재: ',
+        'alert.matchCompanyPrompt': '기업명  (현재: ',
+        'alert.matchRolePrompt': '직무  (현재: ',
+        'alert.matchStagePrompt': '단계 (lead / submitted / interview / confirmed / dropped)\n현재: ',
+        'alert.matchSourcePrompt': '소스 (웍스피어 / 자체발굴)\n현재: ',
+        'alert.matchDatePrompt': '날짜 YYYY-MM-DD  (현재: ',
+
+        // Misc / counts
+        'count.daysAgo': '일 지남',
+        'count.recentN': '최근',
+        'count.recentSuffix': '건',
+        'count.totalSuffix': '건',
+        'count.allPrefix': '전체',
+        'count.zeroEntries': '0건',
+        'common.peopleUnit': '명',
+        'common.companiesUnit': '기업',
+        'common.matchesUnit': '매칭',
+        'common.month': '월',
+        'common.weekN': 'W',
+
+        // Months
+        'month.1': '1월', 'month.2': '2월', 'month.3': '3월', 'month.4': '4월',
+        'month.5': '5월', 'month.6': '6월', 'month.7': '7월', 'month.8': '8월',
+        'month.9': '9월', 'month.10': '10월', 'month.11': '11월', 'month.12': '12월',
+      },
+      vi: {
+        // Header / nav
+        'nav.account': 'Tài khoản',
+        'nav.logout': 'Đăng xuất',
+        'nav.reset': '↺ Đặt lại',
+        'nav.demo': 'Demo cục bộ',
+        'nav.demoRole': 'Demo',
+        'nav.langToggle': '🇻🇳 VN',
+        'tab.ktc': 'KTC Matching',
+        'tab.biz': 'Dự án mới',
+        'tab.community': 'Cộng đồng',
+
+        // Login
+        'login.title': 'Đăng nhập VN KPI',
+        'login.subtitle': 'Email công ty + Mật khẩu',
+        'login.emailPh': 'Email (vd: kee@likelion.net)',
+        'login.passwordPh': 'Mật khẩu',
+        'login.submit': 'Đăng nhập',
+        'login.hintPrefix': 'Mật khẩu mặc định:',
+        'login.hintSuffix': '· Có thể đổi sau khi đăng nhập',
+        'login.setupHint': 'Chưa cấu hình Supabase',
+        'login.fail': 'Đăng nhập thất bại: ',
+
+        // Account modal
+        'account.title': 'Tài khoản của tôi',
+        'account.name': 'Tên',
+        'account.save': 'Lưu',
+        'account.email': 'Email',
+        'account.change': 'Đổi',
+        'account.emailNote': 'Khi đổi, link xác nhận có thể được gửi đến email mới',
+        'account.newPassword': 'Mật khẩu mới',
+        'account.passwordPh': 'Tối thiểu 6 ký tự',
+        'account.localOnly': 'Chế độ cục bộ không hỗ trợ đổi tài khoản',
+        'account.namePromptEmpty': 'Vui lòng nhập tên',
+        'account.emailPromptEmpty': 'Vui lòng nhập email',
+        'account.nameSaved': 'Đã đổi tên',
+        'account.emailSaved': 'Đã gửi yêu cầu đổi email. Có thể nhận link xác nhận',
+        'account.passwordShort': 'Mật khẩu phải từ 6 ký tự',
+        'account.passwordSaved': 'Đã đổi mật khẩu',
+
+        // KTC
+        'ktc.heroLabel': 'Tình hình matching',
+        'ktc.annualTargetLabelPrefix': '· Mục tiêu năm',
+        'ktc.annualTargetLabelSuffix': 'người',
+        'ktc.annualSum': 'Lũy kế năm',
+        'ktc.thisMonth': 'Tháng này',
+        'ktc.thisWeek': 'Tuần này',
+        'ktc.monthDash': '—Tháng',
+        'ktc.annualPctPrefix': 'Tỷ lệ đạt năm',
+        'ktc.monthPctPrefix': 'Tỷ lệ đạt tháng',
+        'ktc.weekPctPrefix': 'Tỷ lệ đạt tuần',
+        'ktc.monthNoTarget': 'Chưa đặt mục tiêu tháng',
+        'ktc.weekNoTarget': 'Chưa đặt mục tiêu tuần',
+        'ktc.editClick': 'Click để sửa',
+        'ktc.targetLine': 'Mục tiêu 200',
+        'ktc.legendActual': 'Thực tế',
+        'ktc.legendTarget': 'Mục tiêu',
+        'ktc.chartNoData': 'Chưa có dữ liệu',
+        'ktc.chartNoDataYet': 'Chưa có dữ liệu',
+        'ktc.projectStart': 'Bắt đầu dự án',
+
+        // KTC weekly tracker
+        'ktc.weeklyTitle': 'Chi tiết theo tháng · tuần',
+        'ktc.targetEdit': 'Sửa mục tiêu',
+        'ktc.targetEditorTitle': 'Mục tiêu nhân sự theo tháng · tuần',
+        'ktc.targetEditorHint': 'Click tháng để mở rộng · Nhập tuần / Trống = 0',
+        'ktc.presetEven': 'Phân bổ đều',
+        'ktc.presetZero': 'Đặt 0 tất cả',
+        'ktc.sumLabel': 'Tổng',
+        'ktc.peopleUnit': 'người',
+        'ktc.cancel': 'Hủy',
+        'ktc.save': 'Lưu',
+        'ktc.prevQuarter': '← Quý trước',
+        'ktc.viewAllWeeks': 'Xem toàn bộ 52 tuần →',
+        'ktc.thisWeekTag': 'Tuần này',
+        'ktc.weekProgressLabel': 'Tiến độ tuần',
+        'ktc.weekSubmitted': 'Hồ sơ',
+        'ktc.weekInterview': 'Phỏng vấn',
+        'ktc.weekConfirmed': 'Xác nhận',
+        'ktc.weeksSuffix': 'tuần',
+
+        // Recent matches
+        'ktc.recentTitle': 'Matching gần đây',
+        'ktc.recent0': 'Gần đây 0 mục',
+        'ktc.recentHelp': 'Mỗi cột (Ngày · Tên · Công ty · Vị trí · Nguồn · Giai đoạn) double-click → ô nhập · Enter lưu · Esc hủy',
+        'ktc.colDate': 'Ngày',
+        'ktc.colName': 'Tên ứng viên',
+        'ktc.colCompany': 'Công ty · Vị trí',
+        'ktc.colSource': 'Nguồn',
+        'ktc.colStage': 'Giai đoạn',
+        'ktc.delete': 'Xóa',
+        'ktc.noMatchesYet': 'Chưa có matching nào',
+        'ktc.addMatchInline': 'Thêm matching',
+        'ktc.formTitle': 'Thêm matching mới',
+        'ktc.formNamePh': 'Tên ứng viên *',
+        'ktc.formCompanyPh': 'Tên công ty *',
+        'ktc.formRolePh': 'Vị trí',
+        'ktc.formSourceWsp': 'Nguồn: Worksphere (Lead)',
+        'ktc.formSourceSelf': 'Nguồn: Tự khai thác (Không Lead)',
+        'ktc.formStageLead': 'Giai đoạn: Lead',
+        'ktc.formStageSubmitted': 'Giai đoạn: Hồ sơ đạt',
+        'ktc.formStageInterview': 'Giai đoạn: Phỏng vấn',
+        'ktc.formStageConfirmed': 'Giai đoạn: Xác nhận matching',
+        'ktc.formStageDropped': 'Giai đoạn: Drop',
+        'ktc.formSaveBtn': 'Lưu ⏎',
+        'ktc.metricsTitle': 'Chỉ số chính',
+        'ktc.metricsSubtitle': 'Lead · Tỷ lệ matching cuối · Matching/công ty',
+        'ktc.metricLeads': 'Lead',
+        'ktc.metricLeadsHint': 'Công ty do Worksphere mang đến',
+        'ktc.metricLeadsUnit': 'công ty',
+        'ktc.metricLeadsDetail': 'Lũy kế Worksphere giới thiệu',
+        'ktc.metricRate': 'Tỷ lệ matching cuối',
+        'ktc.metricRateHint': 'Matching ÷ Lead',
+        'ktc.metricPerCompany': 'Matching/công ty',
+        'ktc.metricPerCompanyHint': 'Matching ÷ Công ty thành công',
+        'ktc.metricPerCompanyUnit': 'người',
+
+        // Stage / source pills
+        'stage.confirmed': 'Xác nhận',
+        'stage.interview': 'Phỏng vấn',
+        'stage.submitted': 'Hồ sơ',
+        'stage.lead': 'Lead',
+        'stage.dropped': 'Drop',
+        'source.worksphere': 'Worksphere',
+        'source.self': 'Tự khai thác',
+
+        // Subtask statuses
+        'subtask.todo': 'Chờ',
+        'subtask.doing': 'Đang làm',
+        'subtask.blocked': 'Bị chặn',
+        'subtask.on_hold': 'Tạm dừng',
+        'subtask.done': 'Hoàn thành',
+        'subtask.warnPrefix': '⚠ ',
+
+        // Project statuses
+        'pstatus.normal': 'Bình thường',
+        'pstatus.review': 'Cần review',
+        'pstatus.danger': 'Rủi ro',
+        'pstatus.delayed': 'Trễ',
+        'pstatus.delayedTag': '⚠ Trễ',
+        'pstatus.dangerTag': '⚠ ',
+
+        // Biz panel
+        'biz.thisMonthRev': 'Doanh thu tháng này',
+        'biz.thisMonthRevPrefix': 'Doanh thu tháng',
+        'biz.thisMonthRevSuffix': '',
+        'biz.dDash': 'D—',
+        'biz.dPast': ' ngày (đã quá hạn)',
+        'biz.annualPrefix': 'Năm',
+        'biz.annualSum': 'Lũy kế năm',
+        'biz.monthListLabel': 'Thử nghiệm theo tháng',
+        'biz.monthListBase': 'Thử nghiệm theo tháng ·',
+        'biz.thisMonthTag': 'Tháng này',
+        'biz.empty': 'Trống — Thêm dự án mới ở dưới',
+        'biz.normalLabel': 'Bình thường',
+        'biz.dangerLabel': 'Rủi ro',
+        'biz.archiveOnly': 'Chỉ ghi nhận doanh thu lưu trữ',
+        'biz.noData': 'Không có dữ liệu',
+        'biz.projectsCount': 'Dự án',
+        'biz.projects': 'dự án',
+        'biz.target': 'Mục tiêu',
+        'biz.editMonthTarget': 'Sửa mục tiêu tháng',
+        'biz.targetEditTooltipPrefix': 'Click để sửa mục tiêu tháng',
+        'biz.targetEditTooltipSuffix': '',
+        'biz.daysOver': ' ngày',
+
+        // Project form
+        'biz.formTitle': 'Thêm dự án mới',
+        'biz.formIcon': 'Biểu tượng',
+        'biz.formIconCustomTitle': 'Nhập tay',
+        'biz.formNamePh': 'Tên dự án (vd: Giải pháp marketing thanh toán cho cửa hàng Hàn ở VN)',
+        'biz.formHypoLabel': 'Kiểm chứng giả thuyết',
+        'biz.formCustomerSegmentPh': 'Khách hàng mục tiêu (vd: Chủ nhà hàng Hàn tại VN)',
+        'biz.formHypothesisPh': 'Giả thuyết (vd: Triển khai công cụ thanh toán 30k/tháng có thể chuyển đổi 30 cửa hàng/tháng)',
+        'biz.formMetricPh': 'Chỉ số kiểm chứng (vd: 24 cửa hàng chuyển đổi trả phí / 1 tháng)',
+        'biz.formOwner': 'Phụ trách',
+        'biz.formOwnerPh': 'Tên (vd: Nam Younghoon)',
+        'biz.formStartDate': 'Ngày bắt đầu',
+        'biz.formDeadline': 'Hạn chót',
+        'biz.formTargetRev': 'Doanh thu mục tiêu (KRW)',
+        'biz.formCancel': 'Hủy',
+        'biz.formRegister': 'Đăng ký ⏎',
+
+        // Project card / details
+        'proj.changeOwner': 'Đổi người phụ trách',
+        'proj.changeDeadline': 'Đổi hạn chót',
+        'proj.milestonePrefix': 'Milestone',
+        'proj.editIcon': 'Click để đổi biểu tượng',
+        'proj.editClick': 'Click để sửa',
+        'proj.changeStatus': 'Click để đổi trạng thái',
+        'proj.editRevenue': 'Click để nhập doanh thu',
+        'proj.targetCustomer': 'Khách hàng mục tiêu:',
+        'proj.targetCustomerAdd': 'Thêm khách hàng mục tiêu',
+        'proj.hypothesis': 'Giả thuyết:',
+        'proj.hypothesisAdd': 'Thêm giả thuyết',
+        'proj.metric': 'Chỉ số kiểm chứng:',
+        'proj.metricAdd': 'Thêm chỉ số kiểm chứng',
+        'proj.method': 'Phương pháp kiểm chứng',
+        'proj.milestoneCount': 'Milestone',
+        'proj.addMilestone': '+ Milestone',
+        'proj.milestoneExample': 'vd) Phỏng vấn 10 lần · Pickup beta 30 nơi · Chuyển đổi trả phí 24 nơi — Chia giả thuyết thành các bước kiểm chứng',
+        'proj.startDate': 'Ngày bắt đầu',
+        'proj.deadline': 'Hạn chót',
+        'proj.targetRev': 'Doanh thu mục tiêu',
+        'proj.actualRev': 'Doanh thu thực',
+        'proj.delete': 'Xóa dự án',
+        'proj.deleteConfirm': 'Xóa dự án này?',
+        'proj.addInline': '+ Thêm dự án mới',
+        'proj.newMilestone': 'Milestone mới',
+        'proj.tbd': 'Chưa xác định',
+        'proj.editStartDate': 'Click để sửa ngày bắt đầu',
+        'proj.editEndDate': 'Click để sửa hạn chót',
+        'proj.subStart': 'Bắt đầu',
+        'proj.subEnd': 'Kết thúc',
+        'proj.revenuePrompt': '— Doanh thu thực (KRW)',
+
+        // Community
+        'comm.totalFollowers': 'Tổng followers',
+        'comm.weekDelta': 'Tăng tuần này',
+        'comm.channels': 'Kênh',
+        'comm.addChannel': '+ Thêm kênh',
+        'comm.weeklyTrend': 'Xu hướng followers theo tuần',
+        'comm.weeklyInput': 'Nhập theo tuần',
+        'comm.weeklyTotal': 'Tổng followers theo tuần',
+        'comm.weeklyByWeek': 'Followers theo tuần (tuần hiện tại:',
+        'comm.thisMonthContent': 'Nội dung tháng này',
+        'comm.publishedSuffix': 'đã đăng',
+        'comm.noChannels': 'Chưa có kênh — bấm + Thêm kênh ở góc phải',
+        'comm.deleteChannelConfirm': 'Xóa kênh này? (Ghi nhận theo tuần cũng sẽ bị xóa)',
+        'comm.handleAdd': 'Thêm @handle',
+        'comm.openLink': 'Mở ↗',
+        'comm.targetEdit': 'Sửa mục tiêu',
+        'comm.chartNoRecord': 'Chưa có ghi nhận — Bấm "Nhập theo tuần" bên phải',
+        'comm.chartTotalCurrent': 'Tổng followers (hiện tại',
+        'comm.chartTarget': 'Mục tiêu',
+        'comm.titleEmpty': 'Chưa có tiêu đề',
+        'comm.modalChannelTitle': 'Thêm kênh',
+        'comm.namePh': 'Tên',
+        'comm.examplePh': 'vd: VN Instagram',
+        'comm.platform': 'Nền tảng',
+        'comm.handle': '@handle',
+        'comm.curFollowers': 'Followers hiện tại',
+        'comm.targetFollowers': 'Followers mục tiêu',
+        'comm.add': 'Thêm',
+        'comm.cancel': 'Hủy',
+        'comm.platformOther': '📱 Khác',
+        'comm.allChannels': 'Tất cả kênh',
+
+        // Post modal
+        'post.title': 'Nội dung',
+        'post.slot': 'Slot',
+        'post.titleLabel': 'Tiêu đề',
+        'post.titlePh': 'Tiêu đề nội dung',
+        'post.captionLabel': 'Caption / Ghi chú',
+        'post.captionPh': 'Mô tả · hashtag · ghi chú kế hoạch',
+        'post.channel': 'Kênh',
+        'post.publishDate': 'Ngày đăng',
+        'post.status': 'Trạng thái',
+        'post.owner': 'Phụ trách',
+        'post.ownerPh': 'Tên',
+        'post.thumbnail': 'URL Thumbnail (tùy chọn)',
+        'post.publishUrl': 'URL bài đăng',
+        'post.likes': 'Lượt thích',
+        'post.delete': 'Xóa',
+        'post.deleteConfirm': 'Xóa?',
+        'post.statusPlanned': 'Kế hoạch',
+        'post.statusShooting': 'Quay',
+        'post.statusEditing': 'Edit',
+        'post.statusScheduled': 'Đã lên lịch',
+        'post.statusPublished': 'Đã đăng',
+        'post.statusCancelled': 'Hủy',
+        'post.iconCustomPh': 'Nhập tay (✏️)',
+
+        // Generic alerts
+        'alert.adminOnlyTarget': 'Chỉ admin/manager mới được sửa mục tiêu',
+        'alert.adminOnly': 'Chỉ admin/manager mới được sửa',
+        'alert.adminOnlyTargetEditor': 'Chỉ admin/manager mới có thể sửa mục tiêu',
+        'alert.failPrefix': 'Thất bại: ',
+        'alert.editFailPrefix': 'Sửa thất bại: ',
+        'alert.deleteFailPrefix': 'Xóa thất bại: ',
+        'alert.saveFailPrefix': 'Lưu thất bại: ',
+        'alert.nameRequired': 'Bắt buộc nhập tên',
+        'alert.matchFieldsRequired': 'Bắt buộc nhập tên ứng viên và công ty',
+        'alert.projectNameRequired': 'Bắt buộc nhập tên dự án',
+        'alert.matchDeleteConfirmPre': '"',
+        'alert.matchDeleteConfirmPost': '" — Xóa matching này?',
+        'alert.localResetConfirm': 'Xóa dữ liệu cục bộ và khôi phục mẫu?',
+        'alert.matchNamePrompt': 'Tên ứng viên (hiện tại: ',
+        'alert.matchCompanyPrompt': 'Tên công ty (hiện tại: ',
+        'alert.matchRolePrompt': 'Vị trí (hiện tại: ',
+        'alert.matchStagePrompt': 'Giai đoạn (lead / submitted / interview / confirmed / dropped)\nHiện tại: ',
+        'alert.matchSourcePrompt': 'Nguồn (웍스피어 / 자체발굴)\nHiện tại: ',
+        'alert.matchDatePrompt': 'Ngày YYYY-MM-DD (hiện tại: ',
+
+        // Misc / counts
+        'count.daysAgo': ' ngày trước',
+        'count.recentN': 'Gần đây',
+        'count.recentSuffix': ' mục',
+        'count.totalSuffix': ' mục',
+        'count.allPrefix': 'tổng',
+        'count.zeroEntries': '0 mục',
+        'common.peopleUnit': 'người',
+        'common.companiesUnit': 'công ty',
+        'common.matchesUnit': 'matching',
+        'common.month': 'Tháng',
+        'common.weekN': 'T',
+
+        // Months
+        'month.1': 'Tháng 1', 'month.2': 'Tháng 2', 'month.3': 'Tháng 3', 'month.4': 'Tháng 4',
+        'month.5': 'Tháng 5', 'month.6': 'Tháng 6', 'month.7': 'Tháng 7', 'month.8': 'Tháng 8',
+        'month.9': 'Tháng 9', 'month.10': 'Tháng 10', 'month.11': 'Tháng 11', 'month.12': 'Tháng 12',
+      }
+    };
+
+    let currentLang = (function(){
+      try { return localStorage.getItem('lang') || 'ko'; } catch(e){ return 'ko'; }
+    })();
+    function t(key) {
+      return (I18N[currentLang] && I18N[currentLang][key]) || I18N.ko[key] || key;
+    }
+    function tMonth(m) {
+      return t('month.' + m);
+    }
+
+    function applyI18n() {
+      document.documentElement.setAttribute('lang', currentLang === 'vi' ? 'vi' : 'ko');
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.getAttribute('data-i18n'));
+      });
+      document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.setAttribute('placeholder', t(el.getAttribute('data-i18n-placeholder')));
+      });
+      document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
+      });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        el.innerHTML = t(el.getAttribute('data-i18n-html'));
+      });
+    }
+
+    function setLang(lang) {
+      currentLang = (lang === 'vi') ? 'vi' : 'ko';
+      try { localStorage.setItem('lang', currentLang); } catch(e){}
+      applyI18n();
+      updateLangSwitchUI();
+      try { renderAll(); } catch(e){}
+    }
+
+    function updateLangSwitchUI() {
+      document.querySelectorAll('#langToggle .lang-opt, #langToggleLogin .lang-opt').forEach(b => {
+        b.classList.toggle('active', b.dataset.lang === currentLang);
+      });
+    }
+
     // ════════════════════════════════════════════════════════════
     // SUPABASE 설정 — 본인 프로젝트 값으로 교체하세요 (SETUP.md 참조)
     // ════════════════════════════════════════════════════════════
@@ -881,10 +1568,10 @@
       return total;
     }
     async function saveMonthRevenueTarget(year, month, target) {
-      if (!isAdmin()) { alert('어드민/매니저만 목표 편집 가능'); return false; }
+      if (!isAdmin()) { alert(t('alert.adminOnlyTarget')); return false; }
       if (sb && state.user) {
         const { error } = await sb.from('month_revenue_targets').upsert({ year, month, target_revenue: target }, { onConflict: 'year,month' });
-        if (error) { alert('실패: ' + error.message); return false; }
+        if (error) { alert(t('alert.failPrefix') + error.message); return false; }
       }
       if (!state.monthRevenueTargets[year]) state.monthRevenueTargets[year] = {};
       state.monthRevenueTargets[year][month] = target;
@@ -892,10 +1579,10 @@
       return true;
     }
     async function saveSetting(key, value) {
-      if (!isAdmin()) { alert('어드민/매니저만 편집 가능'); return false; }
+      if (!isAdmin()) { alert(t('alert.adminOnly')); return false; }
       if (sb && state.user) {
         const { error } = await sb.from('settings').update({ [key]: value, updated_at: new Date().toISOString() }).eq('id', 1);
-        if (error) { alert('실패: ' + error.message); return false; }
+        if (error) { alert(t('alert.failPrefix') + error.message); return false; }
       }
       const local = { annual_match_target: 'annualMatchTarget', month_target: 'monthTarget', project_start: 'projectStart' };
       if (local[key]) state[local[key]] = value;
@@ -1023,16 +1710,16 @@
     function dDay(deadline) {
       const days = dateDiff(state.today, deadline);
       if (days === 0) return 'D-day';
-      if (days < 0) return `+${-days}일 지남`;
+      if (days < 0) return `+${-days}${t('count.daysAgo')}`;
       return `D-${days}`;
     }
 
     const SUBTASK_STATUSES = [
-      ['todo',     '대기',   'zinc'],
-      ['doing',    '진행중', 'blue'],
-      ['blocked',  '차단',   'red'],
-      ['on_hold',  '보류',   'amber'],
-      ['done',     '완료',   'emerald'],
+      ['todo',     'subtask.todo',    'zinc'],
+      ['doing',    'subtask.doing',   'blue'],
+      ['blocked',  'subtask.blocked', 'red'],
+      ['on_hold',  'subtask.on_hold', 'amber'],
+      ['done',     'subtask.done',    'emerald'],
     ];
 
     function subtaskTimeline(s) {
@@ -1043,26 +1730,27 @@
       // 명시적 상태 우선
       const explicit = s.done ? 'done' : (s.status || 'todo');
       const meta = SUBTASK_STATUSES.find(([v]) => v === explicit) || SUBTASK_STATUSES[0];
-      let label = meta[1];
+      let label = t(meta[1]);
       const color = meta[2];
       // 일정 지연 경고 (진행중인 것만)
       if (explicit === 'doing') {
         const gap = progress - timePct;
-        if (gap < -15) label = `⚠ ${label}`;
+        if (gap < -15) label = `${t('subtask.warnPrefix')}${label}`;
       }
       return { timePct, progress, status: label, statusKey: explicit, color };
     }
 
     function stagePill(stage) {
       const map = {
-        confirmed: ['bg-emerald-50 text-emerald-700', '확정'],
-        interview: ['bg-amber-50 text-amber-700', '인터뷰'],
-        submitted: ['bg-blue-50 text-blue-700', '서류'],
-        lead: ['bg-zinc-100 text-zinc-700', '리드'],
-        dropped: ['bg-zinc-100 text-zinc-500', '드롭']
+        confirmed: ['bg-emerald-50 text-emerald-700', 'stage.confirmed'],
+        interview: ['bg-amber-50 text-amber-700', 'stage.interview'],
+        submitted: ['bg-blue-50 text-blue-700', 'stage.submitted'],
+        lead: ['bg-zinc-100 text-zinc-700', 'stage.lead'],
+        dropped: ['bg-zinc-100 text-zinc-500', 'stage.dropped']
       };
-      const v = map[stage] || ['bg-zinc-100 text-zinc-500', stage];
-      return `<span class="pill ${v[0]}">${v[1]}</span>`;
+      const v = map[stage];
+      if (!v) return `<span class="pill bg-zinc-100 text-zinc-500">${escapeHtml(stage||'?')}</span>`;
+      return `<span class="pill ${v[0]}">${t(v[1])}</span>`;
     }
 
     // ---------- RENDER ----------
@@ -1122,14 +1810,14 @@
       const annualPct = state.annualMatchTarget
         ? Math.round(total / state.annualMatchTarget * 100)
         : 0;
-      annualPill.textContent = `연간 달성률 ${annualPct}%`;
+      annualPill.textContent = `${t('ktc.annualPctPrefix')} ${annualPct}%`;
       const elapsedPct = state.currentWeek / 52 * 100;
       let acls;
       if (annualPct >= elapsedPct) acls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
       else if (annualPct >= elapsedPct * 0.75) acls = 'bg-amber-50 text-amber-700 border border-amber-200';
       else acls = 'bg-red-50 text-red-700 border border-red-200';
       annualPill.className = `pill ${acls}`;
-      annualPill.title = `현재 ${total}명 / 연간 목표 ${state.annualMatchTarget}명 · 시간 경과 ${Math.round(elapsedPct)}% (${state.currentWeek}/52주차)`;
+      annualPill.title = `${total}${t('common.peopleUnit')} / ${state.annualMatchTarget}${t('common.peopleUnit')} · ${Math.round(elapsedPct)}% (${state.currentWeek}/52)`;
 
       // ── 이번 달 ──
       const cm = state.currentMonth;
@@ -1137,20 +1825,20 @@
       const cmDone = monthMatchesConfirmed(state.year, cm);
       $('#ktcMonthVal').textContent = cmDone;
       $('#ktcMonthTarget').textContent = cmTarget;
-      $('#ktcMonthNo').textContent = `${cm}월`;
+      $('#ktcMonthNo').textContent = tMonth(cm);
       const monthPill = $('#ktcMonthPill');
       if (cmTarget === 0) {
-        monthPill.textContent = '이번 달 목표 미설정';
+        monthPill.textContent = t('ktc.monthNoTarget');
         monthPill.className = 'pill bg-zinc-100 text-zinc-600';
       } else {
         const mPct = Math.round(cmDone / cmTarget * 100);
-        monthPill.textContent = `이번 달 달성률 ${mPct}%`;
+        monthPill.textContent = `${t('ktc.monthPctPrefix')} ${mPct}%`;
         let mcls;
         if (mPct >= 100) mcls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
         else if (mPct >= 75) mcls = 'bg-amber-50 text-amber-700 border border-amber-200';
         else mcls = 'bg-red-50 text-red-700 border border-red-200';
         monthPill.className = `pill ${mcls}`;
-        monthPill.title = `${cm}월 ${cmDone}명 / 목표 ${cmTarget}명`;
+        monthPill.title = `${tMonth(cm)} ${cmDone}${t('common.peopleUnit')} / ${cmTarget}${t('common.peopleUnit')}`;
       }
 
       // ── 이번 주 ──
@@ -1169,17 +1857,17 @@
       // ── 이번 주 달성률 pill ──
       const weekPill = $('#ktcWeekPill');
       if (cwTarget === 0) {
-        weekPill.textContent = '이번 주 목표 미설정';
+        weekPill.textContent = t('ktc.weekNoTarget');
         weekPill.className = 'pill bg-zinc-100 text-zinc-600';
       } else {
         const wPct = Math.round(cwDone / cwTarget * 100);
-        weekPill.textContent = `이번 주 달성률 ${wPct}%`;
+        weekPill.textContent = `${t('ktc.weekPctPrefix')} ${wPct}%`;
         let wcls;
         if (wPct >= 100) wcls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
         else if (wPct >= 75) wcls = 'bg-amber-50 text-amber-700 border border-amber-200';
         else wcls = 'bg-red-50 text-red-700 border border-red-200';
         weekPill.className = `pill ${wcls}`;
-        weekPill.title = `이번 주 ${cwDone}명 / 목표 ${cwTarget}명`;
+        weekPill.title = `${cwDone}${t('common.peopleUnit')} / ${cwTarget}${t('common.peopleUnit')}`;
       }
 
       // Chart
@@ -1199,7 +1887,7 @@
         gt.innerHTML = `
           <line x1="${startX.toFixed(1)}" y1="170" x2="520" y2="20" stroke="#a1a1aa" stroke-width="1.5" stroke-dasharray="5,4"/>
           ${startW > 1 ? `<line x1="${startX.toFixed(1)}" y1="20" x2="${startX.toFixed(1)}" y2="180" stroke="#a1a1aa" stroke-width="0.6" stroke-dasharray="2,2" opacity="0.5"/>
-          <text x="${startX.toFixed(1)}" y="14" font-size="9" fill="#52525b" text-anchor="middle" font-family="Pretendard">프로젝트 시작</text>` : ''}
+          <text x="${startX.toFixed(1)}" y="14" font-size="9" fill="#52525b" text-anchor="middle" font-family="Pretendard">${t('ktc.projectStart')}</text>` : ''}
         `;
       }
       // Cumulative actual from projectStart week
@@ -1214,7 +1902,7 @@
       const summary = $('#chartSummary');
       if (cum === 0) {
         ga.innerHTML = '';
-        if (summary) summary.textContent = '아직 데이터 없음';
+        if (summary) summary.textContent = t('ktc.chartNoDataYet');
         return;
       }
       const lastX = 40 + state.currentWeek * (480/52);
@@ -1227,7 +1915,7 @@
       `;
       if (summary) {
         const annualPct = state.annualMatchTarget ? Math.round(cum/state.annualMatchTarget*100) : 0;
-        summary.innerHTML = `누적 <span class="font-medium">${cum}명</span> · 연간 달성률 <span class="font-medium">${annualPct}%</span> <span class="ink-muted">(연간 목표 ${state.annualMatchTarget}명)</span>`;
+        summary.innerHTML = `${t('ktc.annualSum')} <span class="font-medium">${cum}${t('common.peopleUnit')}</span> · ${t('ktc.annualPctPrefix')} <span class="font-medium">${annualPct}%</span> <span class="ink-muted">(${state.annualMatchTarget}${t('common.peopleUnit')})</span>`;
       }
     }
 
@@ -1281,17 +1969,17 @@
             <div class="grid items-center gap-3" style="grid-template-columns: 90px 1fr 56px 48px;">
               <div>
                 <div class="text-sm font-bold tnum">W${w}</div>
-                <div class="text-[10px] ink-soft tnum mt-0.5">${rangeStr} · 이번 주</div>
+                <div class="text-[10px] ink-soft tnum mt-0.5">${rangeStr} · ${t('ktc.thisWeekTag')}</div>
               </div>
               <div class="bar" style="height: 8px"><span style="width: ${barWidth}%"></span></div>
               <div class="text-right text-base font-medium tnum">${done}<span class="ink-muted text-sm font-normal">/${target}</span></div>
               <div class="text-right text-sm font-bold tnum">${pctTxt === '—' ? '—' : pctTxt}</div>
             </div>
             <div class="mt-2 text-[11px] ink-muted">
-              <span class="ink-soft">이번 주 진행</span> ·
-              서류 <span class="tnum font-medium">${data.submitted}</span> ·
-              인터뷰 <span class="tnum font-medium">${data.interview}</span> ·
-              확정 <span class="tnum font-medium">${data.confirmed}</span>
+              <span class="ink-soft">${t('ktc.weekProgressLabel')}</span> ·
+              ${t('ktc.weekSubmitted')} <span class="tnum font-medium">${data.submitted}</span> ·
+              ${t('ktc.weekInterview')} <span class="tnum font-medium">${data.interview}</span> ·
+              ${t('ktc.weekConfirmed')} <span class="tnum font-medium">${data.confirmed}</span>
             </div>
           </div>`;
       }
@@ -1359,13 +2047,13 @@
             <summary class="px-3 py-2.5 cursor-pointer flex items-center gap-3 ${isCur ? 'bg-zinc-50' : 'hover:bg-zinc-50/40'}">
               <span class="chev text-xs">›</span>
               <div class="flex-1 flex items-baseline gap-2">
-                <span class="text-sm font-medium">${m}월</span>
-                ${isCur ? '<span class="pill bg-zinc-900 text-white text-[9px]">이번 달</span>' : ''}
-                <span class="text-[10px] ink-muted">${weeks.length}주 (W${weeks[0]}~W${weeks[weeks.length-1]})</span>
+                <span class="text-sm font-medium">${tMonth(m)}</span>
+                ${isCur ? `<span class="pill bg-zinc-900 text-white text-[9px]">${t('ktc.thisMonth')}</span>` : ''}
+                <span class="text-[10px] ink-muted">${weeks.length}${t('ktc.weeksSuffix')} (W${weeks[0]}~W${weeks[weeks.length-1]})</span>
               </div>
               <div class="text-right">
                 <span class="font-bold tnum text-sm" data-msum="${m}">${mSum}</span>
-                <span class="ink-muted text-xs">명</span>
+                <span class="ink-muted text-xs">${t('ktc.peopleUnit')}</span>
               </div>
             </summary>
             <div class="bg-white">${weekRows}</div>
@@ -1389,7 +2077,7 @@
         $('#targetSumVal').textContent = total;
         const diff = total - state.annualMatchTarget;
         const pill = $('#targetSumPill');
-        pill.textContent = diff === 0 ? `목표 ${state.annualMatchTarget} ✓` : `목표 ${state.annualMatchTarget} (${diff>0?'+':''}${diff})`;
+        pill.textContent = diff === 0 ? `${t('ktc.legendTarget')} ${state.annualMatchTarget} ✓` : `${t('ktc.legendTarget')} ${state.annualMatchTarget} (${diff>0?'+':''}${diff})`;
         pill.className = `ml-2 pill ${diff === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-700'}`;
         Object.keys(monthSums).forEach(m => {
           const el = grid.querySelector(`[data-msum="${m}"]`);
@@ -1407,27 +2095,27 @@
       $('#metricLeads').textContent = yearLeads();
       $('#metricMatchRate').textContent = matchRate();
       $('#metricMatchRateBar').style.width = `${matchRate()}%`;
-      $('#metricMatchRateDetail').textContent = `${annualMatches()} / ${yearLeads()} · 목표 33%`;
+      $('#metricMatchRateDetail').textContent = `${annualMatches()} / ${yearLeads()} · ${t('ktc.legendTarget')} 33%`;
       $('#metricPerCompany').textContent = perCompany();
-      $('#metricPerCompanyDetail').textContent = `${annualMatches()}매칭 / ${yearMatchedCompanies()}기업`;
+      $('#metricPerCompanyDetail').textContent = `${annualMatches()} ${t('common.matchesUnit')} / ${yearMatchedCompanies()} ${t('common.companiesUnit')}`;
     }
 
     function sourcePill(source) {
-      if (source === '웍스피어') return '<span class="pill bg-indigo-50 text-indigo-700">웍스피어</span>';
-      if (source === '자체발굴') return '<span class="pill bg-zinc-100 text-zinc-600">자체 발굴</span>';
+      if (source === '웍스피어') return `<span class="pill bg-indigo-50 text-indigo-700">${t('source.worksphere')}</span>`;
+      if (source === '자체발굴') return `<span class="pill bg-zinc-100 text-zinc-600">${t('source.self')}</span>`;
       return `<span class="pill bg-zinc-100 text-zinc-500">${escapeHtml(source||'?')}</span>`;
     }
 
     const STAGE_OPTIONS = [
-      ['lead', '리드'],
-      ['submitted', '서류 통과'],
-      ['interview', '인터뷰'],
-      ['confirmed', '확정 매칭'],
-      ['dropped', '드롭']
+      ['lead', 'ktc.formStageLead'],
+      ['submitted', 'ktc.formStageSubmitted'],
+      ['interview', 'ktc.formStageInterview'],
+      ['confirmed', 'ktc.formStageConfirmed'],
+      ['dropped', 'ktc.formStageDropped']
     ];
     const SOURCE_OPTIONS = [
-      ['웍스피어', '웍스피어'],
-      ['자체발굴', '자체 발굴']
+      ['웍스피어', 'source.worksphere'],
+      ['자체발굴', 'source.self']
     ];
 
     function renderRecentMatches() {
@@ -1437,40 +2125,40 @@
       const cols = 'grid-template-columns: 56px 1.2fr 1.2fr 80px 70px 22px;';
       const head = `
         <div class="grid items-center gap-2 px-4 py-2 text-[10px] ink-muted uppercase tracking-wide border-b hairline bg-zinc-50/40" style="${cols}">
-          <div>날짜</div>
-          <div>인재 이름</div>
-          <div>기업 · 직무</div>
-          <div>소스</div>
-          <div class="text-right">단계</div>
+          <div>${t('ktc.colDate')}</div>
+          <div>${t('ktc.colName')}</div>
+          <div>${t('ktc.colCompany')}</div>
+          <div>${t('ktc.colSource')}</div>
+          <div class="text-right">${t('ktc.colStage')}</div>
           <div></div>
         </div>`;
       const rows = recent.map((m, i) => {
         const lastCls = (i === recent.length - 1) ? 'border-b hairline' : 'border-b hairline';
         return `
           <div class="row grid items-center gap-2 px-4 py-2.5 text-sm hover:bg-zinc-50 ${lastCls}" data-match-id="${m.id}" style="${cols}">
-            <div data-cell="date" class="cell-edit ink-muted text-xs tnum" title="클릭하여 수정">${fmtDate(m.date)}</div>
-            <div data-cell="name" class="cell-edit font-medium truncate" title="클릭하여 수정">${escapeHtml(m.name)}</div>
+            <div data-cell="date" class="cell-edit ink-muted text-xs tnum" title="${t('ktc.editClick')}">${fmtDate(m.date)}</div>
+            <div data-cell="name" class="cell-edit font-medium truncate" title="${t('ktc.editClick')}">${escapeHtml(m.name)}</div>
             <div class="ink-soft truncate flex gap-1 min-w-0">
-              <span data-cell="company" class="cell-edit truncate" title="클릭하여 수정">${escapeHtml(m.company)}</span>
+              <span data-cell="company" class="cell-edit truncate" title="${t('ktc.editClick')}">${escapeHtml(m.company)}</span>
               <span class="ink-muted shrink-0">·</span>
-              <span data-cell="role" class="cell-edit truncate" title="클릭하여 수정">${escapeHtml(m.role||'—')}</span>
+              <span data-cell="role" class="cell-edit truncate" title="${t('ktc.editClick')}">${escapeHtml(m.role||'—')}</span>
             </div>
-            <div data-cell="source" class="cell-edit" title="클릭하여 수정">${sourcePill(m.source)}</div>
-            <div data-cell="stage" class="cell-edit text-right" title="클릭하여 수정">${stagePill(m.stage)}</div>
-            <button data-delete-match="${m.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="삭제">✕</button>
+            <div data-cell="source" class="cell-edit" title="${t('ktc.editClick')}">${sourcePill(m.source)}</div>
+            <div data-cell="stage" class="cell-edit text-right" title="${t('ktc.editClick')}">${stagePill(m.stage)}</div>
+            <button data-delete-match="${m.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="${t('ktc.delete')}">✕</button>
           </div>`;
       }).join('');
       const empty = recent.length === 0
-        ? '<div class="px-4 py-6 text-center text-xs ink-muted">아직 매칭이 없어요</div>'
+        ? `<div class="px-4 py-6 text-center text-xs ink-muted">${t('ktc.noMatchesYet')}</div>`
         : '';
       const addRow = `
         <div class="px-4 py-2.5 text-xs text-center cursor-pointer ink-muted hover:text-zinc-900 hover:bg-zinc-50 select-none" id="addMatchInline">
-          <span class="font-medium">+</span> 매칭 추가
+          <span class="font-medium">+</span> ${t('ktc.addMatchInline')}
         </div>`;
       list.innerHTML = head + empty + rows + addRow;
       $('#recentMatchCount').textContent = recent.length === 0
-        ? `0건`
-        : `최근 ${recent.length}건 / 전체 ${state.matches.length}건`;
+        ? t('count.zeroEntries')
+        : `${t('count.recentN')} ${recent.length}${t('count.recentSuffix')} / ${t('count.allPrefix')} ${state.matches.length}${t('count.totalSuffix')}`;
       // wire delete
       $$('[data-delete-match]').forEach(btn => btn.addEventListener('click', e => {
         e.stopPropagation();
@@ -1505,17 +2193,17 @@
       let editor;
       if (field === 'stage') {
         editor = document.createElement('select');
-        STAGE_OPTIONS.forEach(([v, label]) => {
+        STAGE_OPTIONS.forEach(([v, labelKey]) => {
           const opt = document.createElement('option');
-          opt.value = v; opt.textContent = label;
+          opt.value = v; opt.textContent = t(labelKey);
           if (v === original) opt.selected = true;
           editor.appendChild(opt);
         });
       } else if (field === 'source') {
         editor = document.createElement('select');
-        SOURCE_OPTIONS.forEach(([v, label]) => {
+        SOURCE_OPTIONS.forEach(([v, labelKey]) => {
           const opt = document.createElement('option');
-          opt.value = v; opt.textContent = label;
+          opt.value = v; opt.textContent = t(labelKey);
           if (v === original) opt.selected = true;
           editor.appendChild(opt);
         });
@@ -1548,7 +2236,7 @@
         if (Object.keys(update).length > 0) {
           if (sb && state.user) {
             const { data, error } = await sb.from('matches').update(update).eq('id', mid).select().single();
-            if (error) { alert('수정 실패: ' + error.message); renderAllPreserve(); return; }
+            if (error) { alert(t('alert.editFailPrefix') + error.message); renderAllPreserve(); return; }
             Object.assign(m, data);
           } else {
             Object.assign(m, update);
@@ -1574,10 +2262,12 @@
       const monthEnd = `${state.year}-${String(cm).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
       const dDays = dateDiff(state.today, monthEnd);
 
-      $('#bizMonthLabel').textContent = `이번 달 ${cm}월 매출`;
+      $('#bizMonthLabel').textContent = currentLang === 'vi'
+        ? `${t('biz.thisMonthRevPrefix')} ${tMonth(cm)}`
+        : `${t('biz.thisMonthRevPrefix')} ${cm}월 매출`;
       $('#bizMonthValNum').textContent = (monthRev/1_000_000).toFixed(1) + 'M';
       $('#bizMonthTargetNum').textContent = (monthTgt/1_000_000).toFixed(0) + 'M';
-      $('#bizMonthDday').textContent = dDays >= 0 ? `D-${dDays}` : `+${-dDays}일 (마감 지남)`;
+      $('#bizMonthDday').textContent = dDays >= 0 ? `D-${dDays}` : `+${-dDays}${t('biz.dPast')}`;
       $('#bizMonthPctNum').textContent = `${monthPct}%`;
 
       // 게이지 색상
@@ -1599,14 +2289,14 @@
       $('#bizAnnualNum').textContent = (annual/1_000_000).toFixed(1);
       $('#bizAnnualTargetNum').textContent = (at/1_000_000).toFixed(0) + 'M';
       const pill = $('#bizGapPill');
-      pill.textContent = `연간 ${annualPct}%`;
+      pill.textContent = `${t('biz.annualPrefix')} ${annualPct}%`;
       const elapsedPct = cm / 12 * 100;
       let acls;
       if (annualPct >= elapsedPct) acls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
       else if (annualPct >= elapsedPct * 0.75) acls = 'bg-amber-50 text-amber-700 border border-amber-200';
       else acls = 'bg-red-50 text-red-700 border border-red-200';
       pill.className = `pill ${acls} text-[10px]`;
-      pill.title = `연간 ${fmtMoney(annual)} / ${fmtMoney(at)} · 경과 ${Math.round(elapsedPct)}%`;
+      pill.title = `${t('biz.annualPrefix')} ${fmtMoney(annual)} / ${fmtMoney(at)} · ${Math.round(elapsedPct)}%`;
 
       $('#tabBizBadge').textContent = `${fmtMoney(monthRev)}/${fmtMoney(monthTgt)}`;
     }
@@ -1630,19 +2320,19 @@
       if (p.status === 'danger') {
         cardCls = 'bg-white border-2 border-red-200';
         headerBg = 'hover:bg-red-50/40 bg-red-50/20';
-        statusPill = `<span class="pill bg-red-100 text-red-700 border border-red-200 cell-edit" data-pcell="status" data-pid="${p.id}" title="클릭하여 상태 변경">⚠ ${dDay(p.deadline)}</span>`;
+        statusPill = `<span class="pill bg-red-100 text-red-700 border border-red-200 cell-edit" data-pcell="status" data-pid="${p.id}" title="${t('proj.changeStatus')}">${t('pstatus.dangerTag')}${dDay(p.deadline)}</span>`;
       } else if (p.status === 'delayed') {
         cardCls = 'bg-white border-2 border-red-200';
         headerBg = 'hover:bg-red-50/40 bg-red-50/20';
-        statusPill = `<span class="pill bg-red-100 text-red-700 border border-red-200 cell-edit" data-pcell="status" data-pid="${p.id}" title="클릭하여 상태 변경">⚠ 지연</span>`;
+        statusPill = `<span class="pill bg-red-100 text-red-700 border border-red-200 cell-edit" data-pcell="status" data-pid="${p.id}" title="${t('proj.changeStatus')}">${t('pstatus.delayedTag')}</span>`;
       } else if (p.status === 'review') {
         cardCls = 'bg-white border hairline';
         headerBg = 'hover:bg-zinc-50';
-        statusPill = `<span class="pill bg-amber-50 text-amber-700 cell-edit" data-pcell="status" data-pid="${p.id}" title="클릭하여 상태 변경">검토</span>`;
+        statusPill = `<span class="pill bg-amber-50 text-amber-700 cell-edit" data-pcell="status" data-pid="${p.id}" title="${t('proj.changeStatus')}">${t('pstatus.review')}</span>`;
       } else {
         cardCls = 'bg-white border hairline';
         headerBg = 'hover:bg-zinc-50';
-        statusPill = `<span class="pill bg-emerald-50 text-emerald-700 cell-edit" data-pcell="status" data-pid="${p.id}" title="클릭하여 상태 변경">정상</span>`;
+        statusPill = `<span class="pill bg-emerald-50 text-emerald-700 cell-edit" data-pcell="status" data-pid="${p.id}" title="${t('proj.changeStatus')}">${t('pstatus.normal')}</span>`;
       }
       const barCls = revPct >= 70 ? 'bar ok' : (revPct >= 30 ? 'bar' : 'bar warn');
       return `
@@ -1651,21 +2341,21 @@
             <summary>
               <div class="px-3 py-2.5 flex items-center gap-3 ${headerBg}">
                 <span class="chev cursor-pointer">›</span>
-                <span class="cell-edit text-base" data-pcell="icon" data-pid="${p.id}" title="클릭하여 이모지 변경">${p.icon}</span>
+                <span class="cell-edit text-base" data-pcell="icon" data-pid="${p.id}" title="${t('proj.editIcon')}">${p.icon}</span>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">
-                    <span class="font-medium text-sm cell-edit" data-pcell="name" data-pid="${p.id}" title="클릭하여 수정">${escapeHtml(p.name)}</span>
+                    <span class="font-medium text-sm cell-edit" data-pcell="name" data-pid="${p.id}" title="${t('proj.editClick')}">${escapeHtml(p.name)}</span>
                     ${statusPill}
                   </div>
                   <div class="text-[11px] ink-muted mt-0.5">
-                    <span class="cell-edit" data-pcell="owner" data-pid="${p.id}" title="담당자 변경">${escapeHtml(p.owner)}</span> ·
-                    <span class="cell-edit" data-pcell="deadline" data-pid="${p.id}" title="마감일 변경">${dDay(p.deadline)}</span> ·
-                    마일스톤 ${subDone}/${subTotal}
+                    <span class="cell-edit" data-pcell="owner" data-pid="${p.id}" title="${t('proj.changeOwner')}">${escapeHtml(p.owner)}</span> ·
+                    <span class="cell-edit" data-pcell="deadline" data-pid="${p.id}" title="${t('proj.changeDeadline')}">${dDay(p.deadline)}</span> ·
+                    ${t('proj.milestonePrefix')} ${subDone}/${subTotal}
                   </div>
                 </div>
                 <div class="w-32">
                   <div class="${barCls}" style="height: 4px"><span style="width: ${revPct}%"></span></div>
-                  <div class="text-[11px] ink-muted tnum mt-1 text-right hover:text-zinc-900" data-edit-revenue="${p.id}" style="cursor:pointer" title="클릭하여 매출 입력">
+                  <div class="text-[11px] ink-muted tnum mt-1 text-right hover:text-zinc-900" data-edit-revenue="${p.id}" style="cursor:pointer" title="${t('proj.editRevenue')}">
                     ${fmtMoney(p.actual)} · ${Math.round(revPct)}%
                   </div>
                 </div>
@@ -1684,54 +2374,54 @@
         <div class="px-3 pb-3 pt-2 border-t hairline">
           <!-- 가설 검증 + 마일스톤 통합 박스 -->
           <div class="bg-zinc-50/40 rounded-md p-3 mb-3 space-y-2">
-            <div class="text-[10px] font-medium ink-muted uppercase tracking-wide">가설 검증</div>
+            <div class="text-[10px] font-medium ink-muted uppercase tracking-wide">${t('biz.formHypoLabel')}</div>
             <div class="text-[11px] ink-soft">
-              <span class="font-medium ink-muted">타겟 고객:</span>
-              <span class="cell-edit" data-pcell="customer_segment" data-pid="${p.id}" title="클릭하여 수정">${p.customer_segment ? escapeHtml(p.customer_segment) : placeholderSpan('타겟 고객 추가')}</span>
+              <span class="font-medium ink-muted">${t('proj.targetCustomer')}</span>
+              <span class="cell-edit" data-pcell="customer_segment" data-pid="${p.id}" title="${t('proj.editClick')}">${p.customer_segment ? escapeHtml(p.customer_segment) : placeholderSpan(t('proj.targetCustomerAdd'))}</span>
             </div>
             <div class="text-[11px] ink-soft">
-              <span class="font-medium ink-muted">가설:</span>
-              <span class="cell-edit" data-pcell="hypothesis" data-pid="${p.id}" title="클릭하여 수정">${p.hypothesis ? escapeHtml(p.hypothesis) : placeholderSpan('가설 추가')}</span>
+              <span class="font-medium ink-muted">${t('proj.hypothesis')}</span>
+              <span class="cell-edit" data-pcell="hypothesis" data-pid="${p.id}" title="${t('proj.editClick')}">${p.hypothesis ? escapeHtml(p.hypothesis) : placeholderSpan(t('proj.hypothesisAdd'))}</span>
             </div>
             <div class="text-[11px] ink-soft">
-              <span class="font-medium ink-muted">검증 지표:</span>
-              <span class="cell-edit" data-pcell="success_metric" data-pid="${p.id}" title="클릭하여 수정">${p.success_metric ? escapeHtml(p.success_metric) : placeholderSpan('검증 지표 추가')}</span>
+              <span class="font-medium ink-muted">${t('proj.metric')}</span>
+              <span class="cell-edit" data-pcell="success_metric" data-pid="${p.id}" title="${t('proj.editClick')}">${p.success_metric ? escapeHtml(p.success_metric) : placeholderSpan(t('proj.metricAdd'))}</span>
             </div>
 
             <!-- 검증 방법 (마일스톤) -->
             <div class="pt-2 mt-2 border-t hairline">
               <div class="flex items-center justify-between mb-1.5">
-                <div class="text-[11px] ink-soft"><span class="font-medium ink-muted">검증 방법</span> <span class="ink-muted">(마일스톤 · ${doneCount}/${tasks.length})</span></div>
-                <button data-add-subtask="${p.id}" class="text-[11px] ink-muted hover:text-zinc-900">+ 마일스톤</button>
+                <div class="text-[11px] ink-soft"><span class="font-medium ink-muted">${t('proj.method')}</span> <span class="ink-muted">(${t('proj.milestoneCount')} · ${doneCount}/${tasks.length})</span></div>
+                <button data-add-subtask="${p.id}" class="text-[11px] ink-muted hover:text-zinc-900">${t('proj.addMilestone')}</button>
               </div>
               ${tasks.length > 0
                 ? tasks.map((s, i) => subtaskRow(p.id, s, i === tasks.length - 1)).join('')
-                : '<div class="text-[11px] ink-muted py-1.5 italic">예) 인터뷰 10건 · 베타 30곳 픽업 · 유료 전환 24곳 — 가설을 어떻게 검증할 건지 단계로 쪼개세요</div>'}
+                : `<div class="text-[11px] ink-muted py-1.5 italic">${t('proj.milestoneExample')}</div>`}
             </div>
           </div>
 
           <!-- 일정·매출 -->
           <div class="grid grid-cols-4 gap-2 text-[11px] ink-soft mb-3 px-1">
             <div>
-              <div class="text-[10px] ink-muted mb-0.5">시작일</div>
-              <span class="cell-edit" data-pcell="start_date" data-pid="${p.id}" title="클릭하여 수정">${p.start_date ? p.start_date.slice(5).replace('-','/') : placeholderSpan('—')}</span>
+              <div class="text-[10px] ink-muted mb-0.5">${t('proj.startDate')}</div>
+              <span class="cell-edit" data-pcell="start_date" data-pid="${p.id}" title="${t('proj.editClick')}">${p.start_date ? p.start_date.slice(5).replace('-','/') : placeholderSpan('—')}</span>
             </div>
             <div>
-              <div class="text-[10px] ink-muted mb-0.5">마감일</div>
-              <span class="cell-edit" data-pcell="deadline" data-pid="${p.id}" title="클릭하여 수정">${p.deadline ? p.deadline.slice(5).replace('-','/') : placeholderSpan('—')}</span>
+              <div class="text-[10px] ink-muted mb-0.5">${t('proj.deadline')}</div>
+              <span class="cell-edit" data-pcell="deadline" data-pid="${p.id}" title="${t('proj.editClick')}">${p.deadline ? p.deadline.slice(5).replace('-','/') : placeholderSpan('—')}</span>
             </div>
             <div>
-              <div class="text-[10px] ink-muted mb-0.5">목표 매출</div>
-              <span class="cell-edit tnum" data-pcell="target" data-pid="${p.id}" title="클릭하여 수정">${fmtMoney(p.target)}</span>
+              <div class="text-[10px] ink-muted mb-0.5">${t('proj.targetRev')}</div>
+              <span class="cell-edit tnum" data-pcell="target" data-pid="${p.id}" title="${t('proj.editClick')}">${fmtMoney(p.target)}</span>
             </div>
             <div>
-              <div class="text-[10px] ink-muted mb-0.5">실 매출</div>
-              <span class="cell-edit tnum" data-pcell="actual" data-pid="${p.id}" title="클릭하여 수정">${fmtMoney(p.actual)}</span>
+              <div class="text-[10px] ink-muted mb-0.5">${t('proj.actualRev')}</div>
+              <span class="cell-edit tnum" data-pcell="actual" data-pid="${p.id}" title="${t('proj.editClick')}">${fmtMoney(p.actual)}</span>
             </div>
           </div>
 
           <div class="flex items-center justify-end mt-2">
-            <button data-delete-project="${p.id}" class="text-[11px] ink-muted hover:text-red-600">프로젝트 삭제</button>
+            <button data-delete-project="${p.id}" class="text-[11px] ink-muted hover:text-red-600">${t('proj.delete')}</button>
           </div>
         </div>`;
     }
@@ -1754,23 +2444,23 @@
         <div class="grid items-center gap-3 py-2 text-xs ${lastBorder}" style="grid-template-columns: 18px 1.4fr 50px minmax(0,1.6fr) 50px 70px 14px;">
           <input type="checkbox" data-subtask="${pid}|${s.id}" ${s.done ? 'checked' : ''} class="accent-zinc-900" />
           <div>
-            <div class="cell-edit ${titleCls}" data-stcell="title" data-pid="${pid}" data-sid="${s.id}" title="클릭하여 수정">${escapeHtml(s.title)}</div>
-            <div class="text-[10px] ink-muted cell-edit" data-stcell="owner" data-pid="${pid}" data-sid="${s.id}" title="담당자 변경">${escapeHtml(s.owner)}</div>
+            <div class="cell-edit ${titleCls}" data-stcell="title" data-pid="${pid}" data-sid="${s.id}" title="${t('proj.editClick')}">${escapeHtml(s.title)}</div>
+            <div class="text-[10px] ink-muted cell-edit" data-stcell="owner" data-pid="${pid}" data-sid="${s.id}" title="${t('proj.changeOwner')}">${escapeHtml(s.owner)}</div>
           </div>
-          <div class="cell-edit text-right" data-stcell="start" data-pid="${pid}" data-sid="${s.id}" title="클릭하여 시작일 수정">
-            <div class="text-[9px] ink-muted leading-none">시작</div>
+          <div class="cell-edit text-right" data-stcell="start" data-pid="${pid}" data-sid="${s.id}" title="${t('proj.editStartDate')}">
+            <div class="text-[9px] ink-muted leading-none">${t('proj.subStart')}</div>
             <div class="ink-muted tnum mt-0.5">${fmtDate(s.start)}</div>
           </div>
           <div class="relative h-1.5 bg-zinc-100 rounded-full">
             <div class="absolute inset-y-0 left-0 ${fillColor} rounded-full" style="width: ${tl.progress}%"></div>
             ${showMarker ? `<div class="tl-marker" style="left: ${tl.timePct}%"></div>` : ''}
           </div>
-          <div class="cell-edit" data-stcell="end" data-pid="${pid}" data-sid="${s.id}" title="클릭하여 마감일 수정">
-            <div class="text-[9px] ink-muted leading-none">마감</div>
+          <div class="cell-edit" data-stcell="end" data-pid="${pid}" data-sid="${s.id}" title="${t('proj.editEndDate')}">
+            <div class="text-[9px] ink-muted leading-none">${t('proj.subEnd')}</div>
             <div class="ink-muted tnum mt-0.5">${fmtDate(s.end)}</div>
           </div>
-          <div class="text-right"><span class="pill cell-edit ${pillCls}" data-stcell="status" data-pid="${pid}" data-sid="${s.id}" title="클릭하여 상태 변경">${tl.status}</span></div>
-          <button data-delete-subtask="${pid}|${s.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="삭제">✕</button>
+          <div class="text-right"><span class="pill cell-edit ${pillCls}" data-stcell="status" data-pid="${pid}" data-sid="${s.id}" title="${t('proj.changeStatus')}">${tl.status}</span></div>
+          <button data-delete-subtask="${pid}|${s.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="${t('ktc.delete')}">✕</button>
         </div>`;
     }
 
@@ -1780,11 +2470,11 @@
       const cm = state.currentMonth;
       const yr = state.year;
       const lbl = $('#monthListLabel');
-      if (lbl) lbl.textContent = `월별 시도 · ${yr}`;
+      if (lbl) lbl.textContent = `${t('biz.monthListBase')} ${yr}`;
       const meta = $('#monthListMeta');
       const cMayProj = state.projects.filter(p => p.year === yr && p.month === cm);
       const cMayDanger = cMayProj.filter(p => p.status==='danger' || p.status==='delayed').length;
-      if (meta) meta.textContent = cMayProj.length > 0 ? `이번 달 정상 ${cMayProj.length-cMayDanger} · 위험 ${cMayDanger}` : '';
+      if (meta) meta.textContent = cMayProj.length > 0 ? `${t('biz.thisMonthTag')} ${t('biz.normalLabel')} ${cMayProj.length-cMayDanger} · ${t('biz.dangerLabel')} ${cMayDanger}` : '';
       const html = [];
       for (let m = 1; m <= 12; m++) {
         html.push(monthRow(m, m === cm, m < cm));
@@ -1832,24 +2522,24 @@
       else revenue = state.monthArchive[monthKey] || 0;
       const pct = target ? Math.round(revenue/target*100) : 0;
       const borderTop = m > 1 ? 'border-t hairline' : '';
-      const targetEditable = `<span class="cell-edit text-[10px] ink-muted tnum" data-mtarget="${m}" title="클릭하여 ${m}월 목표 수정">목표 ${fmtMoney(target)}</span>`;
+      const targetEditable = `<span class="cell-edit text-[10px] ink-muted tnum" data-mtarget="${m}" title="${t('biz.targetEditTooltipPrefix')} ${currentLang==='vi' ? tMonth(m) : (m+'월')} ${t('biz.targetEditTooltipSuffix')}">${t('biz.target')} ${fmtMoney(target)}</span>`;
 
       if (isCurrent) {
         const lastDay = new Date(yr, m, 0).getDate();
         const monthEnd = `${yr}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
         const dDays = dateDiff(state.today, monthEnd);
-        const dDayStr = dDays >= 0 ? `D-${dDays}` : `+${-dDays}일`;
+        const dDayStr = dDays >= 0 ? `D-${dDays}` : `+${-dDays}${t('biz.daysOver')}`;
         const cnt = monthProjects.length;
         const danger = monthProjects.filter(p => p.status==='danger' || p.status==='delayed').length;
-        const statusTxt = cnt === 0 ? '비어있음 — 아래에서 신사업 추가' : `정상 ${cnt - danger} · 위험 ${danger}`;
+        const statusTxt = cnt === 0 ? t('biz.empty') : `${t('biz.normalLabel')} ${cnt - danger} · ${t('biz.dangerLabel')} ${danger}`;
         return `
           <details open data-mrow="${m}">
             <summary>
               <div class="grid items-center gap-3 px-4 py-3.5 cursor-pointer ${borderTop}" style="grid-template-columns: 16px 56px 1fr 90px 44px; background: #fafaf6; border-left: 3px solid var(--ink); padding-left: 13px;">
                 <span class="chev text-sm">›</span>
                 <div>
-                  <div class="text-sm font-bold tnum">${m}월</div>
-                  <div class="text-[10px] ink-soft tnum mt-0.5">이번 달 · ${dDayStr}</div>
+                  <div class="text-sm font-bold tnum">${tMonth(m)}</div>
+                  <div class="text-[10px] ink-soft tnum mt-0.5">${t('biz.thisMonthTag')} · ${dDayStr}</div>
                 </div>
                 <div class="bar" style="height: 7px"><span style="width: ${Math.min(100, pct)}%"></span></div>
                 <div class="text-right">
@@ -1861,7 +2551,7 @@
             </summary>
             <div class="px-4 pb-4 pt-1 border-t hairline">
               <div class="flex items-center justify-between my-3">
-                <div class="text-[11px] ink-muted">${m}월 프로젝트 (${cnt})</div>
+                <div class="text-[11px] ink-muted">${tMonth(m)} ${t('biz.projectsCount')} (${cnt})</div>
                 <div class="text-[10px] ink-muted">${statusTxt}</div>
               </div>
               <div class="proj-list space-y-2" id="projectsList"></div>
@@ -1875,14 +2565,14 @@
         else if (target > 0 && pct >= 75) { barCls = 'bar warn'; pctCls = 'text-amber-600'; }
         else if (target > 0 && revenue > 0) { barCls = 'bar danger'; pctCls = 'text-red-600'; }
         const expandHtml = isEmpty
-          ? `<div class="px-5 py-3 border-t hairline bg-zinc-50/40 text-xs ink-muted">데이터 없음</div>`
-          : `<div class="px-5 py-3 border-t hairline bg-zinc-50/40 text-xs ink-muted">${monthProjects.length > 0 ? `프로젝트 ${monthProjects.length}개` : '아카이브 매출만 기록됨'}</div>`;
+          ? `<div class="px-5 py-3 border-t hairline bg-zinc-50/40 text-xs ink-muted">${t('biz.noData')}</div>`
+          : `<div class="px-5 py-3 border-t hairline bg-zinc-50/40 text-xs ink-muted">${monthProjects.length > 0 ? `${t('biz.projects')} ${monthProjects.length}` : t('biz.archiveOnly')}</div>`;
         return `
           <details data-mrow="${m}">
             <summary>
               <div class="grid items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 cursor-pointer ${opacity} ${borderTop}" style="grid-template-columns: 16px 40px 1fr 90px 44px;">
                 <span class="chev text-sm">›</span>
-                <div class="text-xs font-medium tnum">${m}월</div>
+                <div class="text-xs font-medium tnum">${tMonth(m)}</div>
                 <div class="${barCls}" style="height: 5px"><span style="width: ${Math.min(100, pct)}%"></span></div>
                 <div class="text-right">
                   <div class="text-xs ink-soft tnum">${revenue > 0 ? fmtMoney(revenue) : '—'}</div>
@@ -1899,7 +2589,7 @@
             <summary>
               <div class="grid items-center gap-3 px-4 py-2.5 hover:bg-zinc-50 cursor-pointer opacity-50 ${borderTop}" style="grid-template-columns: 16px 40px 1fr 90px 44px;">
                 <span class="chev text-sm">›</span>
-                <div class="text-xs ink-muted tnum">${m}월</div>
+                <div class="text-xs ink-muted tnum">${tMonth(m)}</div>
                 <div class="bar" style="height: 5px"><span style="width: 0%"></span></div>
                 <div class="text-right">
                   <div class="text-xs ink-muted tnum">—</div>
@@ -1916,7 +2606,7 @@
       const list = $('#projectsList');
       if (!list) return;
       const may = state.projects.filter(p => p.year===state.year && p.month===state.currentMonth);
-      const addBtnHtml = `<button id="addProjectInline" class="w-full py-4 text-sm border hairline border-dashed rounded-lg ink-muted hover:text-zinc-900 hover:bg-white hover:border-zinc-400 transition">+ 신사업 추가</button>`;
+      const addBtnHtml = `<button id="addProjectInline" class="w-full py-4 text-sm border hairline border-dashed rounded-lg ink-muted hover:text-zinc-900 hover:bg-white hover:border-zinc-400 transition">${t('proj.addInline')}</button>`;
       list.innerHTML = may.length === 0
         ? addBtnHtml
         : may.map(projectCard).join('') + `<div class="pt-2">${addBtnHtml}</div>`;
@@ -1972,6 +2662,7 @@
       renderMonthList();
       renderProjects();
       renderCommunity();
+      applyI18n();
       save();
     }
 
@@ -1981,12 +2672,12 @@
       threads: '🧵', other: '📱'
     };
     const POST_STATUS = {
-      planned:   ['bg-zinc-100 text-zinc-600',  '계획'],
-      shooting:  ['bg-amber-50 text-amber-700', '촬영'],
-      editing:   ['bg-blue-50 text-blue-700',   '편집'],
-      scheduled: ['bg-violet-50 text-violet-700','예약'],
-      published: ['bg-emerald-50 text-emerald-700', '발행'],
-      cancelled: ['bg-zinc-100 text-zinc-400',  '취소'],
+      planned:   ['bg-zinc-100 text-zinc-600',  'post.statusPlanned'],
+      shooting:  ['bg-amber-50 text-amber-700', 'post.statusShooting'],
+      editing:   ['bg-blue-50 text-blue-700',   'post.statusEditing'],
+      scheduled: ['bg-violet-50 text-violet-700','post.statusScheduled'],
+      published: ['bg-emerald-50 text-emerald-700', 'post.statusPublished'],
+      cancelled: ['bg-zinc-100 text-zinc-400',  'post.statusCancelled'],
     };
 
     function latestFollowers(channelId) {
@@ -2044,7 +2735,7 @@
       const list = $('#commChannels');
       if (!list) return;
       if (!state.channels.length) {
-        list.innerHTML = '<div class="col-span-2 text-xs ink-muted text-center py-6">채널 없음 — 우상단 + 채널 추가</div>';
+        list.innerHTML = `<div class="col-span-2 text-xs ink-muted text-center py-6">${t('comm.noChannels')}</div>`;
         return;
       }
       list.innerHTML = state.channels.map(c => {
@@ -2053,7 +2744,7 @@
         const pct = target ? Math.round(cur / target * 100) : 0;
         const delta = weekDelta(c.id);
         const icon = c.icon || PLATFORM_ICON[c.platform] || '📱';
-        const link = c.url ? `<a href="${escapeHtml(c.url)}" target="_blank" class="text-[10px] ink-soft hover:text-zinc-900 underline">열기 ↗</a>` : '';
+        const link = c.url ? `<a href="${escapeHtml(c.url)}" target="_blank" class="text-[10px] ink-soft hover:text-zinc-900 underline">${t('comm.openLink')}</a>` : '';
         const handle = c.handle ? `<span class="text-[10px] ink-muted">${escapeHtml(c.handle)}</span>` : '';
         return `
           <div class="bg-white border hairline rounded-lg p-4">
@@ -2061,18 +2752,18 @@
               <div class="flex items-center gap-2">
                 <span class="text-xl">${icon}</span>
                 <div>
-                  <div class="text-sm font-medium cell-edit" data-ccell="name" data-cid="${c.id}" title="클릭하여 수정">${escapeHtml(c.name)}</div>
+                  <div class="text-sm font-medium cell-edit" data-ccell="name" data-cid="${c.id}" title="${t('proj.editClick')}">${escapeHtml(c.name)}</div>
                   <div class="flex items-center gap-2 mt-0.5">
-                    ${handle ? `<span class="text-[10px] ink-muted cell-edit" data-ccell="handle" data-cid="${c.id}" title="클릭하여 수정">${escapeHtml(c.handle)}</span>` : `<span class="text-[10px] ink-soft cell-edit" data-ccell="handle" data-cid="${c.id}" title="클릭하여 수정">@핸들 추가</span>`}
+                    ${handle ? `<span class="text-[10px] ink-muted cell-edit" data-ccell="handle" data-cid="${c.id}" title="${t('proj.editClick')}">${escapeHtml(c.handle)}</span>` : `<span class="text-[10px] ink-soft cell-edit" data-ccell="handle" data-cid="${c.id}" title="${t('proj.editClick')}">${t('comm.handleAdd')}</span>`}
                     ${link}
                   </div>
                 </div>
               </div>
-              <button data-delete-channel="${c.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="삭제">✕</button>
+              <button data-delete-channel="${c.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="${t('ktc.delete')}">✕</button>
             </div>
             <div class="flex items-baseline gap-2 mb-1.5">
               <span class="text-2xl font-semibold tnum">${cur.toLocaleString()}</span>
-              <span class="text-sm ink-muted tnum">/ <span class="cell-edit" data-ccell="target_followers" data-cid="${c.id}" title="목표 수정">${target.toLocaleString()}</span></span>
+              <span class="text-sm ink-muted tnum">/ <span class="cell-edit" data-ccell="target_followers" data-cid="${c.id}" title="${t('comm.targetEdit')}">${target.toLocaleString()}</span></span>
               <span class="ml-auto text-xs ${delta>0?'text-emerald-600':delta<0?'text-red-500':'ink-soft'}">${delta>=0?'+':''}${delta}</span>
             </div>
             <div class="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
@@ -2093,7 +2784,7 @@
       list.querySelectorAll('[data-delete-channel]').forEach(btn => {
         btn.addEventListener('click', e => {
           e.stopPropagation(); e.preventDefault();
-          if (!confirm('이 채널을 삭제할까요? (주차별 기록 함께 삭제됨)')) return;
+          if (!confirm(t('comm.deleteChannelConfirm'))) return;
           deleteChannel(btn.dataset.deleteChannel);
         });
       });
@@ -2143,7 +2834,7 @@
         // estimate week of month start
         const w = (m === 1) ? 1 : weekToMonth ? Math.max(1, [...Array(53).keys()].map(i=>i+1).find(ww => weekToMonth(state.year, ww) === m) || 1) : 1;
         const x = xPos(w);
-        return `<text x="${x}" y="${H - 4}" fill="#a1a1aa" font-size="9" text-anchor="middle">${m}월</text>`;
+        return `<text x="${x}" y="${H - 4}" fill="#a1a1aa" font-size="9" text-anchor="middle">${tMonth(m)}</text>`;
       }).join('');
 
       // current week marker
@@ -2152,10 +2843,10 @@
 
       svg.innerHTML = `
         <line x1="${padL}" y1="${targetY}" x2="${W-padR}" y2="${targetY}" stroke="#d4d4d4" stroke-width="0.6" stroke-dasharray="3,3" />
-        <text x="${W-padR}" y="${targetY-3}" fill="#a1a1aa" font-size="8" text-anchor="end">목표 ${targetSum.toLocaleString()}</text>
+        <text x="${W-padR}" y="${targetY-3}" fill="#a1a1aa" font-size="8" text-anchor="end">${t('comm.chartTarget')} ${targetSum.toLocaleString()}</text>
         <line x1="${cwX}" y1="${padT}" x2="${cwX}" y2="${padT+innerH}" stroke="#18181b" stroke-width="0.5" stroke-dasharray="2,2" />
         <text x="${cwX}" y="${padT-2}" fill="#18181b" font-size="9" text-anchor="middle" font-weight="600">W${cw}</text>
-        ${pathD ? `<path d="${pathD}" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` : `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#a1a1aa" font-size="11">아직 기록 없음 — 우측 "주차별 입력" 버튼</text>`}
+        ${pathD ? `<path d="${pathD}" fill="none" stroke="#18181b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>` : `<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="#a1a1aa" font-size="11">${t('comm.chartNoRecord')}</text>`}
         ${monthMarks}
       `;
 
@@ -2163,14 +2854,14 @@
       const editBtn = $('#commTrackerEditBtn');
       if (editBtn) editBtn.classList.toggle('hidden', state.channels.length === 0);
       const lbl = $('#commChartLabel');
-      if (lbl) lbl.textContent = `합계 팔로워 (현재 ${lastValue.toLocaleString()})`;
+      if (lbl) lbl.textContent = `${t('comm.chartTotalCurrent')} ${lastValue.toLocaleString()})`;
     }
 
     function renderCommunityGrid() {
       const grid = $('#commGrid');
       if (!grid) return;
       const ym = $('#commGridMonth');
-      if (ym) ym.textContent = state.currentMonth;
+      if (ym) ym.textContent = tMonth(state.currentMonth);
       const monthPosts = state.posts.filter(p => p.year === state.year && p.month === state.currentMonth);
       const bySlot = {};
       monthPosts.forEach(p => { bySlot[p.slot] = p; });
@@ -2178,7 +2869,9 @@
       for (let slot = 1; slot <= 9; slot++) {
         const p = bySlot[slot];
         if (p) {
-          const [statusCls, statusLbl] = POST_STATUS[p.status] || POST_STATUS.planned;
+          const meta = POST_STATUS[p.status] || POST_STATUS.planned;
+          const statusCls = meta[0];
+          const statusLbl = t(meta[1]);
           const thumb = p.thumbnail_url
             ? `<img src="${escapeHtml(p.thumbnail_url)}" class="absolute inset-0 w-full h-full object-cover" alt="">`
             : '';
@@ -2191,7 +2884,7 @@
                   <span class="pill ${statusCls} text-[9px]">${statusLbl}</span>
                   ${date ? `<span class="text-[9px] tnum ${thumb?'text-white':'ink-muted'}">${date}</span>` : ''}
                 </div>
-                <div class="${thumb?'text-white':'text-zinc-700'} text-[10px] font-medium leading-tight line-clamp-2">${p.title ? escapeHtml(p.title) : '<span class="ink-muted italic">제목 없음</span>'}</div>
+                <div class="${thumb?'text-white':'text-zinc-700'} text-[10px] font-medium leading-tight line-clamp-2">${p.title ? escapeHtml(p.title) : `<span class="ink-muted italic">${t('comm.titleEmpty')}</span>`}</div>
               </div>
             </div>`);
         } else {
@@ -2205,7 +2898,7 @@
       const meta = $('#commGridMeta');
       if (meta) {
         const published = monthPosts.filter(p => p.status === 'published').length;
-        meta.textContent = `${published}/${monthPosts.length || 9} 발행`;
+        meta.textContent = `${published}/${monthPosts.length || 9} ${t('comm.publishedSuffix')}`;
       }
       grid.querySelectorAll('[data-post-slot]').forEach(cell => {
         cell.addEventListener('click', () => openPostModal(parseInt(cell.dataset.postSlot, 10)));
@@ -2225,10 +2918,10 @@
         target_followers: parseInt(fd.get('target_followers')||'1000', 10) || 1000,
         sort_order: state.channels.length + 1,
       };
-      if (!payload.name) { alert('이름 필수'); return; }
+      if (!payload.name) { alert(t('alert.nameRequired')); return; }
       if (sb && state.user) {
         const { data, error } = await sb.from('community_channels').insert({ ...payload, created_by: state.user.id }).select().single();
-        if (error) { alert('실패: ' + error.message); return; }
+        if (error) { alert(t('alert.failPrefix') + error.message); return; }
         state.channels.push(data);
       } else {
         state.channels.push({ id: uid(), ...payload });
@@ -2241,7 +2934,7 @@
     async function deleteChannel(cid) {
       if (sb && state.user) {
         const { error } = await sb.from('community_channels').delete().eq('id', cid);
-        if (error) { alert('삭제 실패: ' + error.message); return; }
+        if (error) { alert(t('alert.deleteFailPrefix') + error.message); return; }
       }
       state.channels = state.channels.filter(c => c.id !== cid);
       delete state.followersHistory[cid];
@@ -2270,7 +2963,7 @@
           else update[field] = v || null;
           if (sb && state.user) {
             const { error } = await sb.from('community_channels').update(update).eq('id', cid);
-            if (error) { alert('실패: ' + error.message); renderAllPreserve(); return; }
+            if (error) { alert(t('alert.failPrefix') + error.message); renderAllPreserve(); return; }
           }
           Object.assign(c, update);
         }
@@ -2324,7 +3017,7 @@
       const modal = $('#postModal');
       const form = $('#postForm');
       const existing = post || state.posts.find(p => p.year === state.year && p.month === state.currentMonth && p.slot === slot);
-      $('#postModalSlot').textContent = `슬롯 ${slot}`;
+      $('#postModalSlot').textContent = `${t('post.slot')} ${slot}`;
       form.querySelector('[name="postId"]').value = existing?.id || '';
       form.querySelector('[name="slot"]').value = slot;
       form.querySelector('[name="title"]').value = existing?.title || '';
@@ -2360,12 +3053,12 @@
       if (sb && state.user) {
         if (id) {
           const { error } = await sb.from('community_posts').update(payload).eq('id', id);
-          if (error) { alert('실패: ' + error.message); return; }
+          if (error) { alert(t('alert.failPrefix') + error.message); return; }
           const i = state.posts.findIndex(p => p.id === id);
           if (i >= 0) state.posts[i] = { ...state.posts[i], ...payload };
         } else {
           const { data, error } = await sb.from('community_posts').insert({ ...payload, created_by: state.user.id }).select().single();
-          if (error) { alert('실패: ' + error.message); return; }
+          if (error) { alert(t('alert.failPrefix') + error.message); return; }
           state.posts.push(data);
         }
       } else {
@@ -2384,7 +3077,7 @@
       if (!id) return;
       if (sb && state.user) {
         const { error } = await sb.from('community_posts').delete().eq('id', id);
-        if (error) { alert('삭제 실패: ' + error.message); return; }
+        if (error) { alert(t('alert.deleteFailPrefix') + error.message); return; }
       }
       state.posts = state.posts.filter(p => p.id !== id);
       $('#postModal').style.display = 'none';
@@ -2402,11 +3095,11 @@
         source: fd.get('source'),
         stage: fd.get('stage')
       };
-      if (!payload.name || !payload.company) { alert('인재명, 기업명 필수'); return; }
+      if (!payload.name || !payload.company) { alert(t('alert.matchFieldsRequired')); return; }
       let saved;
       if (sb && state.user) {
         const { data, error } = await sb.from('matches').insert({ ...payload, created_by: state.user.id }).select().single();
-        if (error) { alert('저장 실패: ' + error.message); return; }
+        if (error) { alert(t('alert.saveFailPrefix') + error.message); return; }
         saved = data;
       } else {
         saved = { id: uid(), ...payload };
@@ -2426,7 +3119,7 @@
       const base = {
         icon: fd.get('icon') || '✨',
         name: (fd.get('name')||'').trim(),
-        owner: fd.get('owner') || '미정',
+        owner: fd.get('owner') || t('proj.tbd'),
         hypothesis: (fd.get('hypothesis')||'').trim() || null,
         customer_segment: (fd.get('customer_segment')||'').trim() || null,
         success_metric: (fd.get('success_metric')||'').trim() || null,
@@ -2437,14 +3130,14 @@
         status: 'normal',
         subtasks: []
       };
-      if (!base.name) { alert('프로젝트명 필수'); return; }
+      if (!base.name) { alert(t('alert.projectNameRequired')); return; }
       const targetVal = parseInt(fd.get('target') || '1000000', 10);
       let saved;
       if (sb && state.user) {
         const { data, error } = await sb.from('projects').insert({
           ...base, target_revenue: targetVal, actual_revenue: 0, created_by: state.user.id
         }).select().single();
-        if (error) { alert('저장 실패: ' + error.message); return; }
+        if (error) { alert(t('alert.saveFailPrefix') + error.message); return; }
         saved = { ...data, target: data.target_revenue, actual: data.actual_revenue, subtasks: data.subtasks || [] };
       } else {
         saved = { id: uid(), ...base, target: targetVal, actual: 0 };
@@ -2472,7 +3165,7 @@
       else { if (s.status === 'done') s.status = 'doing'; }
       if (sb && state.user) {
         const { error } = await sb.from('projects').update({ subtasks: p.subtasks }).eq('id', pid);
-        if (error) { alert('저장 실패: ' + error.message); Object.assign(s, prev); }
+        if (error) { alert(t('alert.saveFailPrefix') + error.message); Object.assign(s, prev); }
       }
       save();
       renderAllPreserve();
@@ -2487,8 +3180,8 @@
       const lastDay = p.deadline || today;
       p.subtasks.push({
         id: newId,
-        title: '새 마일스톤',
-        owner: state.profile?.name || '미정',
+        title: t('proj.newMilestone'),
+        owner: state.profile?.name || t('proj.tbd'),
         start: today,
         end: lastDay,
         done: false,
@@ -2497,7 +3190,7 @@
       });
       if (sb && state.user) {
         const { error } = await sb.from('projects').update({ subtasks: p.subtasks }).eq('id', pid);
-        if (error) { alert('저장 실패: ' + error.message); p.subtasks.pop(); return; }
+        if (error) { alert(t('alert.saveFailPrefix') + error.message); p.subtasks.pop(); return; }
       }
       save();
       renderAllPreserve();
@@ -2516,7 +3209,7 @@
       const removed = p.subtasks.splice(idx, 1);
       if (sb && state.user) {
         const { error } = await sb.from('projects').update({ subtasks: p.subtasks }).eq('id', pid);
-        if (error) { alert('삭제 실패: ' + error.message); p.subtasks.splice(idx, 0, ...removed); return; }
+        if (error) { alert(t('alert.deleteFailPrefix') + error.message); p.subtasks.splice(idx, 0, ...removed); return; }
       }
       save();
       renderAllPreserve();
@@ -2533,9 +3226,9 @@
       let editor;
       if (field === 'status') {
         editor = document.createElement('select');
-        SUBTASK_STATUSES.forEach(([v, label]) => {
+        SUBTASK_STATUSES.forEach(([v, labelKey]) => {
           const opt = document.createElement('option');
-          opt.value = v; opt.textContent = label;
+          opt.value = v; opt.textContent = t(labelKey);
           if (v === original) opt.selected = true;
           editor.appendChild(opt);
         });
@@ -2573,7 +3266,7 @@
         if (changed) {
           if (sb && state.user) {
             const { error } = await sb.from('projects').update({ subtasks: p.subtasks }).eq('id', pid);
-            if (error) { alert('저장 실패: ' + error.message); Object.assign(s, prevSnap); }
+            if (error) { alert(t('alert.saveFailPrefix') + error.message); Object.assign(s, prevSnap); }
           }
           save();
         }
@@ -2588,7 +3281,7 @@
     }
 
     const PROJECT_OWNERS = ['남영훈','김호현','튀띤','이정애','김슬기'];
-    const PROJECT_STATUS = [['normal','정상'],['review','검토'],['danger','위험'],['delayed','지연']];
+    const PROJECT_STATUS = [['normal','pstatus.normal'],['review','pstatus.review'],['danger','pstatus.danger'],['delayed','pstatus.delayed']];
     const PROJECT_EMOJIS = ['✨','🚀','💡','🎯','📚','🎨','🍔','☕','🛒','📱','💼','🎓','🏢','🌐','📊','🤝','💰','📈','🎬','🎵','🌱','🔧','🧪','🏃'];
 
     function enableProjectFieldEdit(cellEl, pid, field) {
@@ -2604,7 +3297,7 @@
         pop.className = 'absolute z-50 bg-white border hairline rounded-lg shadow-lg p-2 grid grid-cols-8 gap-1';
         pop.style.minWidth = '280px';
         pop.innerHTML = PROJECT_EMOJIS.map(e => `<button type="button" class="emoji-btn ${e === p.icon ? 'selected' : ''}" data-emoji="${e}">${e}</button>`).join('') +
-          `<input id="emojiPopCustom" type="text" maxlength="2" class="col-span-8 mt-1 text-center text-sm border hairline rounded-md py-1.5" placeholder="직접 입력 (✏️)" />`;
+          `<input id="emojiPopCustom" type="text" maxlength="2" class="col-span-8 mt-1 text-center text-sm border hairline rounded-md py-1.5" placeholder="${t('post.iconCustomPh')}" />`;
         document.body.appendChild(pop);
         const rect = cellEl.getBoundingClientRect();
         pop.style.top = (rect.bottom + window.scrollY + 4) + 'px';
@@ -2615,7 +3308,7 @@
           if (v === p.icon) return close();
           if (sb && state.user) {
             const { error } = await sb.from('projects').update({ icon: v }).eq('id', pid);
-            if (error) { alert('실패: ' + error.message); return close(); }
+            if (error) { alert(t('alert.failPrefix') + error.message); return close(); }
           }
           p.icon = v; save(); close(); renderAllPreserve();
         };
@@ -2637,9 +3330,9 @@
         editor.setAttribute('list', 'ownerSuggest');
       } else if (field === 'status') {
         editor = document.createElement('select');
-        PROJECT_STATUS.forEach(([v, label]) => {
+        PROJECT_STATUS.forEach(([v, labelKey]) => {
           const opt = document.createElement('option');
-          opt.value = v; opt.textContent = label;
+          opt.value = v; opt.textContent = t(labelKey);
           if (v === original) opt.selected = true;
           editor.appendChild(opt);
         });
@@ -2692,7 +3385,7 @@
         if (Object.keys(update).length > 0) {
           if (sb && state.user) {
             const { error } = await sb.from('projects').update(update).eq('id', pid);
-            if (error) { alert('수정 실패: ' + error.message); renderAllPreserve(); return; }
+            if (error) { alert(t('alert.editFailPrefix') + error.message); renderAllPreserve(); return; }
           }
           // 로컬 state 동기화 (target/actual은 위에서 처리)
           if (field !== 'target' && field !== 'actual') p[field] = newVal;
@@ -2711,7 +3404,7 @@
     async function editRevenue(pid) {
       const p = state.projects.find(x => x.id === pid);
       if (!p) return;
-      const v = prompt(`${p.name} — 실 매출 (원)`, String(p.actual));
+      const v = prompt(`${p.name} ${t('proj.revenuePrompt')}`, String(p.actual));
       if (v === null) return;
       const n = parseInt(v, 10);
       if (isNaN(n) || n < 0) return;
@@ -2719,17 +3412,17 @@
       p.actual = n;
       if (sb && state.user) {
         const { error } = await sb.from('projects').update({ actual_revenue: n }).eq('id', pid);
-        if (error) { alert('저장 실패: ' + error.message); p.actual = prev; }
+        if (error) { alert(t('alert.saveFailPrefix') + error.message); p.actual = prev; }
       }
       save();
       renderAll();
     }
 
     async function deleteProject(pid) {
-      if (!confirm('이 프로젝트를 삭제할까요?')) return;
+      if (!confirm(t('proj.deleteConfirm'))) return;
       if (sb && state.user) {
         const { error } = await sb.from('projects').delete().eq('id', pid);
-        if (error) { alert('삭제 실패: ' + error.message); return; }
+        if (error) { alert(t('alert.deleteFailPrefix') + error.message); return; }
       }
       state.projects = state.projects.filter(x => x.id !== pid);
       save();
@@ -2740,29 +3433,29 @@
       const m = state.matches.find(x => x.id === mid);
       if (!m) return;
       const update = {};
-      const newName = prompt(`인재 이름  (현재: ${m.name})`, m.name);
+      const newName = prompt(`${t('alert.matchNamePrompt')}${m.name})`, m.name);
       if (newName === null) return;
       if (newName.trim() && newName.trim() !== m.name) update.name = newName.trim();
-      const newCompany = prompt(`기업명  (현재: ${m.company})`, m.company);
+      const newCompany = prompt(`${t('alert.matchCompanyPrompt')}${m.company})`, m.company);
       if (newCompany !== null && newCompany.trim() && newCompany.trim() !== m.company) update.company = newCompany.trim();
-      const newRole = prompt(`직무  (현재: ${m.role || '—'})`, m.role || '');
+      const newRole = prompt(`${t('alert.matchRolePrompt')}${m.role || '—'})`, m.role || '');
       if (newRole !== null && newRole.trim() !== (m.role||'')) update.role = newRole.trim() || null;
-      const newStage = prompt(`단계 (lead / submitted / interview / confirmed / dropped)\n현재: ${m.stage}`, m.stage);
+      const newStage = prompt(`${t('alert.matchStagePrompt')}${m.stage}`, m.stage);
       if (newStage !== null) {
         const v = newStage.trim();
         if (['lead','submitted','interview','confirmed','dropped'].includes(v) && v !== m.stage) update.stage = v;
       }
-      const newSource = prompt(`소스 (웍스피어 / 자체발굴)\n현재: ${m.source}`, m.source);
+      const newSource = prompt(`${t('alert.matchSourcePrompt')}${m.source}`, m.source);
       if (newSource !== null) {
         const v = newSource.trim();
         if (['웍스피어','자체발굴'].includes(v) && v !== m.source) update.source = v;
       }
-      const newDate = prompt(`날짜 YYYY-MM-DD  (현재: ${m.date})`, m.date);
+      const newDate = prompt(`${t('alert.matchDatePrompt')}${m.date})`, m.date);
       if (newDate !== null && /^\d{4}-\d{2}-\d{2}$/.test(newDate.trim()) && newDate.trim() !== m.date) update.date = newDate.trim();
       if (Object.keys(update).length === 0) { renderAll(); return; }
       if (sb && state.user) {
         const { data, error } = await sb.from('matches').update(update).eq('id', mid).select().single();
-        if (error) { alert('수정 실패: ' + error.message); return; }
+        if (error) { alert(t('alert.editFailPrefix') + error.message); return; }
         Object.assign(m, data);
       } else {
         Object.assign(m, update);
@@ -2774,10 +3467,10 @@
     async function deleteMatch(mid) {
       const m = state.matches.find(x => x.id === mid);
       if (!m) return;
-      if (!confirm(`"${m.name}" 매칭을 삭제할까요?`)) return;
+      if (!confirm(`${t('alert.matchDeleteConfirmPre')}${m.name}${t('alert.matchDeleteConfirmPost')}`)) return;
       if (sb && state.user) {
         const { error } = await sb.from('matches').delete().eq('id', mid);
-        if (error) { alert('삭제 실패: ' + error.message); return; }
+        if (error) { alert(t('alert.deleteFailPrefix') + error.message); return; }
       }
       state.matches = state.matches.filter(x => x.id !== mid);
       save();
@@ -2785,7 +3478,7 @@
     }
 
     async function saveTargets(form) {
-      if (!isAdmin()) { alert('관리자/매니저만 목표를 편집할 수 있어요'); return; }
+      if (!isAdmin()) { alert(t('alert.adminOnlyTargetEditor')); return; }
       const newTargets = {};
       const upserts = [];
       $$('#targetEditorGrid input[data-week]').forEach(inp => {
@@ -2796,7 +3489,7 @@
       });
       if (sb && state.user) {
         const { error } = await sb.from('week_targets').upsert(upserts, { onConflict: 'year,week' });
-        if (error) { alert('저장 실패: ' + error.message); return; }
+        if (error) { alert(t('alert.saveFailPrefix') + error.message); return; }
       }
       state.weekTargets = newTargets;
       $('#target-editor').classList.add('hidden');
@@ -2862,13 +3555,24 @@
       $$('#target-editor [data-preset]').forEach(btn => btn.addEventListener('click', () => applyTargetPreset(btn.dataset.preset)));
       $('#logoutBtn')?.addEventListener('click', () => {
         if (LOCAL_MODE) {
-          if (!confirm('로컬 데이터 초기화하고 샘플로 되돌릴까요?')) return;
+          if (!confirm(t('alert.localResetConfirm'))) return;
           localStorage.removeItem(LOCAL_STORE);
           location.reload();
         } else {
           logout();
         }
       });
+
+      // Language toggle (header + login) — segmented switcher
+      document.querySelectorAll('#langToggle .lang-opt, #langToggleLogin .lang-opt').forEach(opt => {
+        opt.addEventListener('click', (e) => {
+          e.preventDefault();
+          setLang(opt.dataset.lang);
+        });
+      });
+      updateLangSwitchUI();
+      // Initial apply (covers static elements before any render)
+      applyI18n();
 
       // 내 계정 모달
       const acctModal = $('#accountModal');
@@ -2878,7 +3582,7 @@
         m.className = 'text-xs text-center rounded p-2 ' + (ok ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600');
       };
       $('#accountBtn')?.addEventListener('click', () => {
-        if (LOCAL_MODE) { alert('로컬 모드에서는 계정 변경이 의미 없음'); return; }
+        if (LOCAL_MODE) { alert(t('account.localOnly')); return; }
         $('#acctName').value = state.profile?.name || '';
         $('#acctEmail').value = state.user?.email || '';
         $('#acctPwd').value = '';
@@ -2890,20 +3594,20 @@
 
       $('#acctNameSave')?.addEventListener('click', async () => {
         const name = $('#acctName').value.trim();
-        if (!name) return showAcctMsg('이름을 입력하세요', false);
+        if (!name) return showAcctMsg(t('account.namePromptEmpty'), false);
         const { error } = await sb.from('profiles').update({ name }).eq('id', state.user.id);
-        if (error) return showAcctMsg('실패: ' + error.message, false);
+        if (error) return showAcctMsg(t('alert.failPrefix') + error.message, false);
         if (state.profile) state.profile.name = name;
-        showAcctMsg('이름 변경 완료', true);
+        showAcctMsg(t('account.nameSaved'), true);
       });
 
       $('#acctEmailSave')?.addEventListener('click', async () => {
         const email = $('#acctEmail').value.trim();
-        if (!email) return showAcctMsg('이메일을 입력하세요', false);
+        if (!email) return showAcctMsg(t('account.emailPromptEmpty'), false);
         const { error } = await sb.auth.updateUser({ email });
-        if (error) return showAcctMsg('실패: ' + error.message, false);
+        if (error) return showAcctMsg(t('alert.failPrefix') + error.message, false);
         await sb.from('profiles').update({ email }).eq('id', state.user.id);
-        showAcctMsg('이메일 변경 요청 완료. 확인 링크가 갈 수 있음', true);
+        showAcctMsg(t('account.emailSaved'), true);
       });
 
       // ── 커뮤니티 modal/form wire-up ──
@@ -2925,16 +3629,16 @@
       $('#postForm')?.addEventListener('submit', e => { e.preventDefault(); savePost(e.target); });
       $('#postDelete')?.addEventListener('click', () => {
         const id = $('#postForm').querySelector('[name="postId"]').value;
-        if (id && confirm('삭제할까요?')) deletePost(id);
+        if (id && confirm(t('post.deleteConfirm'))) deletePost(id);
       });
 
       $('#acctPwdSave')?.addEventListener('click', async () => {
         const password = $('#acctPwd').value;
-        if (!password || password.length < 6) return showAcctMsg('6자 이상 비밀번호 입력', false);
+        if (!password || password.length < 6) return showAcctMsg(t('account.passwordShort'), false);
         const { error } = await sb.auth.updateUser({ password });
-        if (error) return showAcctMsg('실패: ' + error.message, false);
+        if (error) return showAcctMsg(t('alert.failPrefix') + error.message, false);
         $('#acctPwd').value = '';
-        showAcctMsg('비밀번호 변경 완료', true);
+        showAcctMsg(t('account.passwordSaved'), true);
       });
 
       // ── 모드 분기 ──
@@ -2945,9 +3649,9 @@
           state = raw ? JSON.parse(raw) : sampleSeed();
         } catch(e) { state = sampleSeed(); }
         if (!state.profile) state.profile = { role: 'admin', name: '로컬' };
-        $('#userEmail').textContent = '로컬 데모';
-        $('#userRole').textContent = '데모';
-        $('#logoutBtn').textContent = '↺ 초기화';
+        $('#userEmail').textContent = t('nav.demo');
+        $('#userRole').textContent = t('nav.demoRole');
+        $('#logoutBtn').textContent = t('nav.reset');
         $('#accountBtn')?.classList.add('hidden');
         $('#loginScreen').style.display = 'none';
         const matchDate = matchForm?.querySelector('input[name="date"]');
@@ -2970,7 +3674,7 @@
         try {
           await login(fd.get('email'), fd.get('password'));
         } catch (err) {
-          $('#loginError').textContent = '로그인 실패: ' + (err.message || err);
+          $('#loginError').textContent = t('login.fail') + (err.message || err);
           $('#loginError').classList.remove('hidden');
         }
       });
