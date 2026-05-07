@@ -102,6 +102,13 @@
     .tl-marker { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: #18181b; }
     .tl-marker::before { content: ''; position: absolute; top: -3px; left: -2px; width: 5px; height: 5px; border-radius: 50%; background: #18181b; }
 
+    /* Drag-and-drop for milestones */
+    .subtask-row .drag-handle { cursor: grab; opacity: 0.25; transition: opacity .15s; user-select: none; }
+    .subtask-row:hover .drag-handle { opacity: 0.6; }
+    .subtask-row .drag-handle:active { cursor: grabbing; }
+    .subtask-row.dragging { opacity: 0.4; background: #f4f4f5; }
+    .subtask-row.drag-over { box-shadow: 0 -2px 0 0 #18181b; }
+
     /* Input ring */
     input:focus, textarea:focus, select:focus { outline: none; box-shadow: 0 0 0 2px #18181b14; border-color: var(--ink); }
 
@@ -1726,7 +1733,7 @@
       const total = dateDiff(s.start, s.end);
       const elapsed = dateDiff(s.start, state.today);
       const timePct = total > 0 ? Math.max(0, Math.min(100, elapsed/total*100)) : 0;
-      const progress = s.done ? 100 : (s.progress||0);
+      const progress = s.done ? 100 : (s.progress >= 100 ? 0 : (s.progress||0));
       // 명시적 상태 우선
       const explicit = s.done ? 'done' : (s.status || 'todo');
       const meta = SUBTASK_STATUSES.find(([v]) => v === explicit) || SUBTASK_STATUSES[0];
@@ -2395,7 +2402,7 @@
                 <button data-add-subtask="${p.id}" class="text-[11px] ink-muted hover:text-zinc-900">${t('proj.addMilestone')}</button>
               </div>
               ${tasks.length > 0
-                ? tasks.map((s, i) => subtaskRow(p.id, s, i === tasks.length - 1)).join('')
+                ? `<div class="subtask-list" data-subtask-list="${p.id}">${tasks.map((s, i) => subtaskRow(p.id, s, i === tasks.length - 1)).join('')}</div>`
                 : `<div class="text-[11px] ink-muted py-1.5 italic">${t('proj.milestoneExample')}</div>`}
             </div>
           </div>
@@ -2441,7 +2448,8 @@
       const showMarker = !s.done && tl.timePct > 0 && tl.timePct < 100;
       const lastBorder = isLast ? '' : 'border-b hairline';
       return `
-        <div class="grid items-center gap-3 py-2 text-xs ${lastBorder}" style="grid-template-columns: 18px 1.4fr 50px minmax(0,1.6fr) 50px 70px 14px;">
+        <div class="subtask-row grid items-center gap-3 py-2 text-xs ${lastBorder}" draggable="true" data-drag-pid="${pid}" data-drag-sid="${s.id}" style="grid-template-columns: 14px 18px 1.4fr 50px minmax(0,1.6fr) 50px 70px 14px;">
+          <span class="drag-handle text-[10px] leading-none" title="Drag to reorder">⠿</span>
           <input type="checkbox" data-subtask="${pid}|${s.id}" ${s.done ? 'checked' : ''} class="accent-zinc-900" />
           <div>
             <div class="cell-edit ${titleCls}" data-stcell="title" data-pid="${pid}" data-sid="${s.id}" title="${t('proj.editClick')}">${escapeHtml(s.title)}</div>
@@ -2650,6 +2658,52 @@
         e.stopPropagation(); e.preventDefault();
         deleteProject(btn.dataset.deleteProject);
       }));
+      // Drag-and-drop for milestone reordering
+      initSubtaskDrag();
+    }
+
+    function initSubtaskDrag() {
+      let dragEl = null;
+      $$('.subtask-row[draggable]').forEach(row => {
+        row.addEventListener('dragstart', e => {
+          dragEl = row;
+          row.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', '');
+        });
+        row.addEventListener('dragend', () => {
+          row.classList.remove('dragging');
+          $$('.subtask-row.drag-over').forEach(r => r.classList.remove('drag-over'));
+          dragEl = null;
+        });
+        row.addEventListener('dragover', e => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (!dragEl || dragEl === row) return;
+          if (dragEl.dataset.dragPid !== row.dataset.dragPid) return;
+          row.classList.add('drag-over');
+        });
+        row.addEventListener('dragleave', () => {
+          row.classList.remove('drag-over');
+        });
+        row.addEventListener('drop', e => {
+          e.preventDefault();
+          row.classList.remove('drag-over');
+          if (!dragEl || dragEl === row) return;
+          const pid = row.dataset.dragPid;
+          if (dragEl.dataset.dragPid !== pid) return;
+          const fromSid = dragEl.dataset.dragSid;
+          const toSid = row.dataset.dragSid;
+          const proj = state.projects.find(p => p.id === pid);
+          if (!proj || !proj.subtasks) return;
+          const fromIdx = proj.subtasks.findIndex(s => s.id === fromSid);
+          const toIdx = proj.subtasks.findIndex(s => s.id === toSid);
+          if (fromIdx < 0 || toIdx < 0) return;
+          const [moved] = proj.subtasks.splice(fromIdx, 1);
+          proj.subtasks.splice(toIdx, 0, moved);
+          renderAllPreserve();
+        });
+      });
     }
 
     function renderAll() {
@@ -3162,7 +3216,7 @@
       const prev = { done: s.done, progress: s.progress, status: s.status };
       s.done = !s.done;
       if (s.done) { s.progress = 100; s.status = 'done'; }
-      else { if (s.status === 'done') s.status = 'doing'; }
+      else { if (s.status === 'done') s.status = 'doing'; s.progress = 0; }
       if (sb && state.user) {
         const { error } = await sb.from('projects').update({ subtasks: p.subtasks }).eq('id', pid);
         if (error) { alert(t('alert.saveFailPrefix') + error.message); Object.assign(s, prev); }
