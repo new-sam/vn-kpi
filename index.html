@@ -1659,7 +1659,7 @@
     syncCalendar();
     // 탭이 다시 활성화되면 자동 갱신 (자정 넘어 주/월 바뀌었을 때)
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) { syncCalendar(); renderAll(); }
+      if (!document.hidden) { syncCalendar(); renderAllPreserve(); }
     });
 
     // Computed (all derived from state.matches)
