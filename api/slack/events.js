@@ -100,15 +100,24 @@ async function handleDM(event) {
   await slackPost(event.channel, results.join('\n'));
 }
 
+export const config = { api: { bodyParser: false } };
+
+function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const rawBody = Buffer.concat(chunks).toString();
+  const rawBody = await getRawBody(req);
   const payload = JSON.parse(rawBody);
 
-  // Slack URL verification challenge
+  // Slack URL verification challenge (no signature check needed)
   if (payload.type === 'url_verification') {
     return res.status(200).json({ challenge: payload.challenge });
   }

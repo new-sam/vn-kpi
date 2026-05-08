@@ -10,12 +10,21 @@ function verify(req, body) {
   return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers['x-slack-signature']));
 }
 
+export const config = { api: { bodyParser: false } };
+
+function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
+    req.on('error', reject);
+  });
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const rawBody = Buffer.concat(chunks).toString();
+  const rawBody = await getRawBody(req);
 
   if (!verify(req, rawBody)) return res.status(401).json({ error: 'Invalid signature' });
 
