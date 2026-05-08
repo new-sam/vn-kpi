@@ -1,8 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
+let _sb;
+function getSb() {
+  if (!_sb) {
+    const { createClient } = require('@supabase/supabase-js');
+    _sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  }
+  return _sb;
+}
 
-const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-const BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
-const TEAM_CHANNEL = process.env.SLACK_TEAM_CHANNEL || '#vn-kpi';
+const BOT_TOKEN = () => process.env.SLACK_BOT_TOKEN;
+const TEAM_CHANNEL = () => process.env.SLACK_TEAM_CHANNEL || '#_newbiz-div';
 
 function progressBar(pct, len = 10) {
   const filled = Math.round((pct / 100) * len);
@@ -24,14 +30,14 @@ function fmtRevenue(n) {
 async function slackPost(channel, text) {
   await fetch('https://slack.com/api/chat.postMessage', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${BOT_TOKEN()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ channel, text }),
   });
 }
 
 async function getSlackUsers() {
   const res = await fetch('https://slack.com/api/users.list', {
-    headers: { Authorization: `Bearer ${BOT_TOKEN}` },
+    headers: { Authorization: `Bearer ${BOT_TOKEN()}` },
   });
   const data = await res.json();
   return data.members || [];
@@ -40,16 +46,15 @@ async function getSlackUsers() {
 async function openDM(userId) {
   const res = await fetch('https://slack.com/api/conversations.open', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${BOT_TOKEN()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ users: userId }),
   });
   const data = await res.json();
   return data.channel?.id;
 }
 
-// Map Supabase profile names to Slack user IDs via email
 async function buildNameToSlackMap() {
-  const { data: profiles } = await sb.from('profiles').select('name, email');
+  const { data: profiles } = await getSb().from('profiles').select('name, email');
   const slackUsers = await getSlackUsers();
 
   const map = {};
@@ -61,7 +66,6 @@ async function buildNameToSlackMap() {
   return map;
 }
 
-// Send personal milestone checklist to each owner
 async function sendPersonalReminders(projects, nameMap) {
   const today = new Date().toISOString().slice(0, 10);
   const ownerTasks = {};
@@ -83,7 +87,7 @@ async function sendPersonalReminders(projects, nameMap) {
     const dmChannel = await openDM(slackId);
     if (!dmChannel) continue;
 
-    const lines = [`:clipboard: *Pending milestones for ${owner}*\n`];
+    const lines = [`:clipboard: *${owner}님 pending milestones*\n`];
     let num = 1;
     let currentProject = '';
 
@@ -103,7 +107,6 @@ async function sendPersonalReminders(projects, nameMap) {
   }
 }
 
-// Send team report to channel
 async function sendTeamReport(projects, settings, matches) {
   const today = new Date().toISOString().slice(0, 10);
   const lines = [`:bar_chart: *VN KPI Daily Report* (${today})\n`];
@@ -138,11 +141,10 @@ async function sendTeamReport(projects, settings, matches) {
     lines.push(`:handshake: Matches: ${total} / ${annual} (annual)`);
   }
 
-  await slackPost(TEAM_CHANNEL, lines.join('\n'));
+  await slackPost(TEAM_CHANNEL(), lines.join('\n'));
 }
 
-export default async function handler(req, res) {
-  // Verify cron secret (Vercel sends this header for cron jobs)
+module.exports = async function handler(req, res) {
   const authHeader = req.headers['authorization'];
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -150,14 +152,13 @@ export default async function handler(req, res) {
 
   try {
     const [{ data: projects }, { data: settings }, { data: matches }] = await Promise.all([
-      sb.from('projects').select('*').order('created_at'),
-      sb.from('settings').select('*').single(),
-      sb.from('matches').select('*'),
+      getSb().from('projects').select('*').order('created_at'),
+      getSb().from('settings').select('*').single(),
+      getSb().from('matches').select('*'),
     ]);
 
     const nameMap = await buildNameToSlackMap();
 
-    // Send personal reminders + team report in parallel
     await Promise.all([
       sendPersonalReminders(projects, nameMap),
       sendTeamReport(projects, settings, matches),
@@ -168,4 +169,4 @@ export default async function handler(req, res) {
     console.error('Cron error:', e);
     return res.status(500).json({ error: e.message });
   }
-}
+};

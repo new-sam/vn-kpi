@@ -1,18 +1,25 @@
-import { createClient } from '@supabase/supabase-js';
-import crypto from 'crypto';
+const crypto = require('crypto');
 
-const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-const SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
+let _sb;
+function getSb() {
+  if (!_sb) {
+    const { createClient } = require('@supabase/supabase-js');
+    _sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  }
+  return _sb;
+}
+
+const SIGNING_SECRET = () => process.env.SLACK_SIGNING_SECRET;
+const BOT_TOKEN = () => process.env.SLACK_BOT_TOKEN;
 
 function verify(req, body) {
   const ts = req.headers['x-slack-request-timestamp'];
   if (Math.abs(Date.now() / 1000 - ts) > 300) return false;
-  const sig = 'v0=' + crypto.createHmac('sha256', SIGNING_SECRET)
+  const sig = 'v0=' + crypto.createHmac('sha256', SIGNING_SECRET())
     .update(`v0:${ts}:${body}`).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers['x-slack-signature']));
+  return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers['x-slack-signature'] || ''));
 }
 
-// Format helpers
 function progressBar(pct, len = 10) {
   const filled = Math.round((pct / 100) * len);
   return '\u2588'.repeat(filled) + '\u2591'.repeat(len - filled);
@@ -49,17 +56,9 @@ async function handleCommand(text, userId) {
     };
   }
 
-  if (sub === 'report') {
-    return await buildTeamReport();
-  }
-
-  if (sub === 'projects') {
-    return await listProjects();
-  }
-
-  if (sub === 'my') {
-    return await myMilestones(userId);
-  }
+  if (sub === 'report') return await buildTeamReport();
+  if (sub === 'projects') return await listProjects();
+  if (sub === 'my') return await myMilestones(userId);
 
   if (sub === 'done') {
     const projIdx = parseInt(args[0]);
@@ -82,7 +81,7 @@ async function handleCommand(text, userId) {
 }
 
 async function listProjects() {
-  const { data: projects } = await sb.from('projects').select('*').order('created_at');
+  const { data: projects } = await getSb().from('projects').select('*').order('created_at');
   if (!projects || projects.length === 0) {
     return { response_type: 'ephemeral', text: 'No projects found.' };
   }
@@ -98,22 +97,20 @@ async function listProjects() {
 }
 
 async function myMilestones(slackUserId) {
-  // lookup slack user email
   const userRes = await fetch(`https://slack.com/api/users.info?user=${slackUserId}`, {
-    headers: { Authorization: `Bearer ${process.env.SLACK_BOT_TOKEN}` },
+    headers: { Authorization: `Bearer ${BOT_TOKEN()}` },
   });
   const userData = await userRes.json();
   const email = userData?.user?.profile?.email;
 
-  // find profile name by email
-  const { data: profile } = await sb.from('profiles').select('name').eq('email', email).single();
+  const { data: profile } = await getSb().from('profiles').select('name').eq('email', email).single();
   const name = profile?.name || '';
 
   if (!name) {
     return { response_type: 'ephemeral', text: 'Could not find your profile. Make sure your Slack email matches your KPI dashboard email.' };
   }
 
-  const { data: projects } = await sb.from('projects').select('*').order('created_at');
+  const { data: projects } = await getSb().from('projects').select('*').order('created_at');
   const today = new Date().toISOString().slice(0, 10);
   const lines = [];
 
@@ -123,7 +120,7 @@ async function myMilestones(slackUserId) {
     );
     if (myTasks.length > 0) {
       lines.push(`\n*${pi + 1}. ${p.icon || ''} ${p.name}*`);
-      myTasks.forEach((s, si) => {
+      myTasks.forEach((s) => {
         const idx = (p.subtasks || []).indexOf(s) + 1;
         const daysLeft = Math.ceil((new Date(s.end) - new Date(today)) / 86400000);
         const warn = daysLeft <= 3 ? ' :warning:' : '';
@@ -140,7 +137,7 @@ async function myMilestones(slackUserId) {
 }
 
 async function markDone(projIdx, msIdx) {
-  const { data: projects } = await sb.from('projects').select('*').order('created_at');
+  const { data: projects } = await getSb().from('projects').select('*').order('created_at');
   const p = projects?.[projIdx - 1];
   if (!p) return { response_type: 'ephemeral', text: `Project #${projIdx} not found.` };
 
@@ -154,7 +151,7 @@ async function markDone(projIdx, msIdx) {
   s.status = 'done';
   s.progress = 100;
 
-  const { error } = await sb.from('projects').update({ subtasks: tasks }).eq('id', p.id);
+  const { error } = await getSb().from('projects').update({ subtasks: tasks }).eq('id', p.id);
   if (error) return { response_type: 'ephemeral', text: `Error: ${error.message}` };
 
   const done = tasks.filter(t => t.done).length;
@@ -167,7 +164,7 @@ async function markDone(projIdx, msIdx) {
 }
 
 async function addMilestone(projectName, title, endDate, owner) {
-  const { data: projects } = await sb.from('projects').select('*').order('created_at');
+  const { data: projects } = await getSb().from('projects').select('*').order('created_at');
   const p = projects?.find(x => x.name.toLowerCase().includes(projectName.toLowerCase()));
   if (!p) return { response_type: 'ephemeral', text: `Project "${projectName}" not found.` };
 
@@ -187,7 +184,7 @@ async function addMilestone(projectName, title, endDate, owner) {
   const tasks = p.subtasks || [];
   tasks.push(newTask);
 
-  const { error } = await sb.from('projects').update({ subtasks: tasks }).eq('id', p.id);
+  const { error } = await getSb().from('projects').update({ subtasks: tasks }).eq('id', p.id);
   if (error) return { response_type: 'ephemeral', text: `Error: ${error.message}` };
 
   return {
@@ -197,14 +194,15 @@ async function addMilestone(projectName, title, endDate, owner) {
 }
 
 async function buildTeamReport() {
-  const { data: projects } = await sb.from('projects').select('*').order('created_at');
-  const { data: settings } = await sb.from('settings').select('*').single();
-  const { data: matches } = await sb.from('matches').select('*');
+  const [{ data: projects }, { data: settings }, { data: matches }] = await Promise.all([
+    getSb().from('projects').select('*').order('created_at'),
+    getSb().from('settings').select('*').single(),
+    getSb().from('matches').select('*'),
+  ]);
 
   const today = new Date().toISOString().slice(0, 10);
   const lines = [`:bar_chart: *VN KPI Daily Report* (${today})\n`];
 
-  // Projects
   projects?.forEach(p => {
     const tasks = p.subtasks || [];
     const done = tasks.filter(s => s.done).length;
@@ -213,7 +211,6 @@ async function buildTeamReport() {
 
     lines.push(`${statusEmoji} *${p.icon || ''} ${p.name}* (@${p.owner || '?'}) ${progressBar(pct)} ${pct}%`);
 
-    // Upcoming deadlines
     const upcoming = tasks.filter(s => !s.done).sort((a, b) => (a.end || '').localeCompare(b.end || ''));
     upcoming.slice(0, 2).forEach(s => {
       const daysLeft = Math.ceil((new Date(s.end) - new Date(today)) / 86400000);
@@ -223,7 +220,6 @@ async function buildTeamReport() {
     lines.push('');
   });
 
-  // Revenue
   if (settings) {
     const totalRevenue = projects?.reduce((sum, p) => sum + (p.actual_revenue || 0), 0) || 0;
     const target = settings.month_target || 5000000;
@@ -231,7 +227,6 @@ async function buildTeamReport() {
     lines.push(`:moneybag: Monthly revenue: ${fmtRevenue(totalRevenue)} / ${fmtRevenue(target)} (${revPct}%)`);
   }
 
-  // Matches
   if (matches) {
     const total = matches.length;
     const annual = settings?.annual_match_target || 200;
@@ -240,8 +235,6 @@ async function buildTeamReport() {
 
   return { response_type: 'in_channel', text: lines.join('\n') };
 }
-
-export const config = { api: { bodyParser: false } };
 
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -252,7 +245,7 @@ function getRawBody(req) {
   });
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const rawBody = await getRawBody(req);
@@ -270,4 +263,6 @@ export default async function handler(req, res) {
     console.error('Command error:', e);
     return res.status(200).json({ response_type: 'ephemeral', text: `Error: ${e.message}` });
   }
-}
+};
+
+module.exports.config = { api: { bodyParser: false } };

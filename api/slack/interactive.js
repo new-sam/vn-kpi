@@ -1,16 +1,14 @@
-import crypto from 'crypto';
+const crypto = require('crypto');
 
-const SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET;
+const SIGNING_SECRET = () => process.env.SLACK_SIGNING_SECRET;
 
 function verify(req, body) {
   const ts = req.headers['x-slack-request-timestamp'];
   if (Math.abs(Date.now() / 1000 - ts) > 300) return false;
-  const sig = 'v0=' + crypto.createHmac('sha256', SIGNING_SECRET)
+  const sig = 'v0=' + crypto.createHmac('sha256', SIGNING_SECRET())
     .update(`v0:${ts}:${body}`).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers['x-slack-signature']));
+  return crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(req.headers['x-slack-signature'] || ''));
 }
-
-export const config = { api: { bodyParser: false } };
 
 function getRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -21,19 +19,19 @@ function getRawBody(req) {
   });
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   const rawBody = await getRawBody(req);
 
   if (!verify(req, rawBody)) return res.status(401).json({ error: 'Invalid signature' });
 
-  // Interactive payloads come as URL-encoded "payload" field
   const params = new URLSearchParams(rawBody);
   const payload = JSON.parse(params.get('payload') || '{}');
 
-  // Placeholder for future button/modal interactions
   console.log('Interactive payload:', payload.type);
 
   return res.status(200).json({ ok: true });
-}
+};
+
+module.exports.config = { api: { bodyParser: false } };
