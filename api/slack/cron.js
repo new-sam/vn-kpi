@@ -66,7 +66,7 @@ async function buildNameToSlackMap() {
   return map;
 }
 
-async function sendPersonalReminders(projects, nameMap) {
+async function sendPersonalReminders(projects, nameMap, type) {
   const today = new Date().toISOString().slice(0, 10);
   const ownerTasks = {};
 
@@ -87,7 +87,11 @@ async function sendPersonalReminders(projects, nameMap) {
     const dmChannel = await openDM(slackId);
     if (!dmChannel) continue;
 
-    const lines = [`:clipboard: *${owner}님 pending milestones*\n`];
+    const header = type === 'morning'
+      ? `:sun_with_face: *${owner}님, 오늘 할 일이에요!*\n`
+      : `:moon: *${owner}님, 퇴근 전 체크!*\n`;
+
+    const lines = [header];
     let num = 1;
     let currentProject = '';
 
@@ -102,7 +106,10 @@ async function sendPersonalReminders(projects, nameMap) {
       num++;
     });
 
-    lines.push('\nComplete? Reply with the number(s) (e.g. `1` or `1 3`)');
+    if (type === 'evening') {
+      lines.push('\n오늘 완료한 항목 번호를 입력해주세요 (예: `1` 또는 `1 3`)');
+    }
+
     await slackPost(dmChannel, lines.join('\n'));
   }
 }
@@ -150,6 +157,9 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  const url = new URL(req.url, `https://${req.headers.host}`);
+  const type = url.searchParams.get('type') || 'morning';
+
   try {
     const [{ data: projects }, { data: settings }, { data: matches }] = await Promise.all([
       getSb().from('projects').select('*').order('created_at'),
@@ -159,12 +169,18 @@ module.exports = async function handler(req, res) {
 
     const nameMap = await buildNameToSlackMap();
 
-    await Promise.all([
-      sendPersonalReminders(projects, nameMap),
-      sendTeamReport(projects, settings, matches),
-    ]);
+    if (type === 'morning') {
+      // 오전 9시: 오늘 할 일 체크리스트 (개인 DM)
+      await sendPersonalReminders(projects, nameMap, 'morning');
+    } else {
+      // 오후 7시: 완료 입력 리마인더 (개인 DM) + 팀 리포트
+      await Promise.all([
+        sendPersonalReminders(projects, nameMap, 'evening'),
+        sendTeamReport(projects, settings, matches),
+      ]);
+    }
 
-    return res.status(200).json({ ok: true, sent: new Date().toISOString() });
+    return res.status(200).json({ ok: true, type, sent: new Date().toISOString() });
   } catch (e) {
     console.error('Cron error:', e);
     return res.status(500).json({ error: e.message });
