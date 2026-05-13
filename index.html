@@ -406,7 +406,7 @@
               <span class="view-tab" data-ch="vietnam"><span class="ch-dot" style="background:#3b82f6"></span>베트남</span>
               <span class="view-tab" data-ch="hacking"><span class="ch-dot" style="background:#a855f7"></span>해킹</span>
             </div>
-            <button id="targetEditBtn" onclick="document.getElementById('target-editor').classList.toggle('hidden')" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100 flex items-center gap-1 hidden">
+            <button id="targetEditBtn" onclick="document.getElementById('target-editor').classList.toggle('hidden')" class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100 flex items-center gap-1">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               목표 편집
             </button>
@@ -1604,7 +1604,6 @@
       return true;
     }
     async function saveSetting(key, value) {
-      if (!isAdmin()) { alert('어드민/매니저만 편집 가능'); return false; }
       if (sb && state.user) {
         const { error } = await sb.from('settings').update({ [key]: value, updated_at: new Date().toISOString() }).eq('id', 1);
         if (error) { alert('실패: ' + error.message); return false; }
@@ -1788,7 +1787,6 @@
       if (annualEdit && !annualEdit.dataset.wired) {
         annualEdit.dataset.wired = '1';
         annualEdit.addEventListener('click', e => {
-          if (!isAdmin()) return;
           if (annualEdit.querySelector('input')) return;
           const cur = state.annualMatchTarget;
           const input = document.createElement('input');
@@ -1816,9 +1814,9 @@
     }
 
     function renderKTCHero() {
-      // 권한 기반 UI 토글
+      // 목표 편집은 모든 인원 가능 — 버튼 항상 노출
       const targetBtn = $('#targetEditBtn');
-      if (targetBtn) targetBtn.classList.toggle('hidden', !isAdmin());
+      if (targetBtn) targetBtn.classList.remove('hidden');
       wireInlineSettingEdits();
 
       const total = annualMatches();
@@ -3951,7 +3949,6 @@
     }
 
     async function saveTargets(form) {
-      if (!isAdmin()) { alert('관리자/매니저만 목표를 편집할 수 있어요'); return; }
       const newTargets = { jeongseok: {}, vietnam: {}, hacking: {} };
       const upserts = [];
       $$('#targetEditorGrid input[data-ch]').forEach(inp => {

@@ -193,9 +193,9 @@ CREATE POLICY "auth users read profiles" ON profiles FOR SELECT USING (auth.role
 CREATE POLICY "users update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "admin update any profile" ON profiles FOR UPDATE USING (is_admin());
 
--- settings: 모두 read, admin/manager만 update
+-- settings: 모두 read/update (목표는 모든 인원 수정 가능)
 CREATE POLICY "auth users read settings" ON settings FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "admin update settings" ON settings FOR UPDATE USING (is_admin());
+CREATE POLICY "auth users update settings" ON settings FOR UPDATE USING (auth.role() = 'authenticated');
 
 -- matches: 모두 read/insert, 본인이 만든 것만 update/delete (admin은 전체)
 CREATE POLICY "auth users read matches" ON matches FOR SELECT USING (auth.role() = 'authenticated');
@@ -221,9 +221,9 @@ CREATE POLICY "admin write week_targets" ON week_targets FOR ALL USING (is_admin
 CREATE POLICY "auth users read month_archive" ON month_archive FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "admin write month_archive" ON month_archive FOR ALL USING (is_admin());
 
--- month_channel_targets: 모두 read, admin/manager만 write
+-- month_channel_targets: 모두 read/write (목표는 모든 인원 수정 가능)
 CREATE POLICY "auth users read month_channel_targets" ON month_channel_targets FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "admin write month_channel_targets" ON month_channel_targets FOR ALL USING (is_admin());
+CREATE POLICY "auth users write month_channel_targets" ON month_channel_targets FOR ALL USING (auth.role() = 'authenticated');
 
 -- month_events: 모두 read, admin/manager만 write
 CREATE POLICY "auth users read month_events" ON month_events FOR SELECT USING (auth.role() = 'authenticated');
