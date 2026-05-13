@@ -63,12 +63,68 @@ CREATE TABLE IF NOT EXISTS matches (
   role TEXT,
   source TEXT NOT NULL CHECK (source IN ('웍스피어', '자체발굴')),
   stage TEXT NOT NULL CHECK (stage IN ('lead', 'submitted', 'interview', 'confirmed', 'dropped')),
+  channel TEXT NOT NULL DEFAULT 'jeongseok' CHECK (channel IN ('jeongseok', 'vietnam', 'hacking')),
   satisfaction NUMERIC(2,1),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES auth.users(id)
 );
 CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date);
 CREATE INDEX IF NOT EXISTS idx_matches_stage ON matches(stage);
+CREATE INDEX IF NOT EXISTS idx_matches_channel ON matches(channel);
+
+-- 기존 테이블이 있을 경우 channel 컬럼 추가 (idempotent)
+ALTER TABLE matches ADD COLUMN IF NOT EXISTS channel TEXT NOT NULL DEFAULT 'jeongseok';
+DO $$ BEGIN
+  ALTER TABLE matches ADD CONSTRAINT matches_channel_chk CHECK (channel IN ('jeongseok','vietnam','hacking'));
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- =====================================================
+-- 3-2. MONTH_CHANNEL_TARGETS (월 × 채널 목표)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS month_channel_targets (
+  year INT NOT NULL,
+  month INT NOT NULL CHECK (month BETWEEN 1 AND 12),
+  channel TEXT NOT NULL CHECK (channel IN ('jeongseok','vietnam','hacking')),
+  target INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (year, month, channel)
+);
+
+-- 2026년 기본 목표 시드
+INSERT INTO month_channel_targets (year, month, channel, target) VALUES
+  (2026, 5,  'jeongseok', 20), (2026, 6,  'jeongseok', 20), (2026, 7,  'jeongseok', 10),
+  (2026, 8,  'jeongseok', 10), (2026, 9,  'jeongseok', 15), (2026, 10, 'jeongseok', 15),
+  (2026, 11, 'jeongseok', 10),
+  (2026, 5,  'vietnam',    0), (2026, 6,  'vietnam',    5), (2026, 7,  'vietnam',   10),
+  (2026, 8,  'vietnam',   15), (2026, 9,  'vietnam',   15), (2026, 10, 'vietnam',   10),
+  (2026, 11, 'vietnam',    5),
+  (2026, 5,  'hacking',    0), (2026, 6,  'hacking',    0), (2026, 7,  'hacking',    0),
+  (2026, 8,  'hacking',   10), (2026, 9,  'hacking',   20), (2026, 10, 'hacking',   10),
+  (2026, 11, 'hacking',    0)
+ON CONFLICT (year, month, channel) DO NOTHING;
+
+-- =====================================================
+-- 3-3. MONTH_EVENTS (월별 호재/악재 라벨)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS month_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  year INT NOT NULL,
+  month INT NOT NULL CHECK (month BETWEEN 1 AND 12),
+  kind TEXT NOT NULL CHECK (kind IN ('good','bad')),
+  label TEXT NOT NULL,
+  sub TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_month_events_ym ON month_events(year, month);
+
+-- 2026년 이벤트 시드
+INSERT INTO month_events (year, month, kind, label, sub) VALUES
+  (2026, 5,  'good', '호치민 매칭위크', '참여기업'),
+  (2026, 6,  'good', '다낭 매칭위크',   'VN 대졸 시즌'),
+  (2026, 7,  'bad',  '한·베 휴가철',    NULL),
+  (2026, 8,  'bad',  '한·베 휴가철',    NULL),
+  (2026, 9,  'good', '호치민 매칭위크', '한국 하반기 채용'),
+  (2026, 11, 'good', '하노이 매칭위크', NULL)
+ON CONFLICT DO NOTHING;
 
 -- =====================================================
 -- 4. PROJECTS (신사업)
@@ -120,6 +176,8 @@ ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE week_targets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE month_archive ENABLE ROW LEVEL SECURITY;
+ALTER TABLE month_channel_targets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE month_events ENABLE ROW LEVEL SECURITY;
 
 -- Helper: is current user admin?
 CREATE OR REPLACE FUNCTION is_admin()
@@ -163,6 +221,14 @@ CREATE POLICY "admin write week_targets" ON week_targets FOR ALL USING (is_admin
 CREATE POLICY "auth users read month_archive" ON month_archive FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "admin write month_archive" ON month_archive FOR ALL USING (is_admin());
 
+-- month_channel_targets: 모두 read, admin/manager만 write
+CREATE POLICY "auth users read month_channel_targets" ON month_channel_targets FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "admin write month_channel_targets" ON month_channel_targets FOR ALL USING (is_admin());
+
+-- month_events: 모두 read, admin/manager만 write
+CREATE POLICY "auth users read month_events" ON month_events FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "admin write month_events" ON month_events FOR ALL USING (is_admin());
+
 -- =====================================================
 -- REALTIME 활성화
 -- =====================================================
@@ -171,6 +237,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE projects;
 ALTER PUBLICATION supabase_realtime ADD TABLE week_targets;
 ALTER PUBLICATION supabase_realtime ADD TABLE month_archive;
 ALTER PUBLICATION supabase_realtime ADD TABLE settings;
+ALTER PUBLICATION supabase_realtime ADD TABLE month_channel_targets;
+ALTER PUBLICATION supabase_realtime ADD TABLE month_events;
 
 -- =====================================================
 -- 초기 어드민 지정 (가입 후 실행)
