@@ -454,7 +454,10 @@
       <div class="mb-4">
         <div class="flex items-center justify-between mb-3">
           <div class="section-label" data-i18n="ktc.match_recent">최근 매칭</div>
-          <span class="text-xs ink-soft" id="recentMatchCount">최근 0건</span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs ink-soft" id="recentMatchCount">최근 0건</span>
+            <button type="button" id="recentMatchToggle" class="hidden text-xs ink-soft hover:text-zinc-900 underline underline-offset-2 decoration-zinc-300 hover:decoration-zinc-900"></button>
+          </div>
         </div>
         <div class="bg-white border hairline rounded-lg overflow-hidden" id="recentMatches">
           <!-- rendered by JS, inline + at bottom -->
@@ -1088,6 +1091,8 @@
         'ktc.preset_zero': '전부 0',
         'ktc.match_recent': '최근 매칭',
         'ktc.add_match': '매칭 추가',
+        'ktc.show_all': '전체 보기',
+        'ktc.show_less': '접기',
         'ktc.annual_pct': '연간 달성률',
         'ktc.month_pct': '이번 달 달성률',
         'ktc.week_pct': '이번 주 달성률',
@@ -1223,6 +1228,8 @@
         'ktc.preset_zero': 'Tất cả 0',
         'ktc.match_recent': 'Khớp nối gần đây',
         'ktc.add_match': 'Thêm khớp nối',
+        'ktc.show_all': 'Xem tất cả',
+        'ktc.show_less': 'Thu gọn',
         'ktc.annual_pct': 'Tỷ lệ đạt năm',
         'ktc.month_pct': 'Tỷ lệ đạt tháng',
         'ktc.week_pct': 'Tỷ lệ đạt tuần',
@@ -2489,10 +2496,14 @@
       ['자체발굴', '자체 발굴']
     ];
 
+    let showAllRecentMatches = false;
+    const RECENT_MATCHES_PREVIEW = 10;
     function renderRecentMatches() {
       const list = $('#recentMatches');
       if (!list) return;
-      const recent = [...state.matches].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 10);
+      const sorted = [...state.matches].sort((a,b) => b.date.localeCompare(a.date));
+      const total = sorted.length;
+      const recent = showAllRecentMatches ? sorted : sorted.slice(0, RECENT_MATCHES_PREVIEW);
       const cols = 'grid-template-columns: 56px 70px 1.2fr 1.2fr 80px 70px 22px;';
       const head = `
         <div class="grid items-center gap-2 px-4 py-2 text-[10px] ink-muted uppercase tracking-wide border-b hairline bg-zinc-50/40" style="${cols}">
@@ -2531,7 +2542,24 @@
       list.innerHTML = head + empty + rows + addRow;
       $('#recentMatchCount').textContent = recent.length === 0
         ? `0건`
-        : `최근 ${recent.length}건 / 전체 ${state.matches.length}건`;
+        : (showAllRecentMatches
+            ? `전체 ${total}건`
+            : `최근 ${recent.length}건 / 전체 ${total}건`);
+      const toggleBtn = $('#recentMatchToggle');
+      if (toggleBtn) {
+        if (total > RECENT_MATCHES_PREVIEW) {
+          toggleBtn.classList.remove('hidden');
+          toggleBtn.textContent = showAllRecentMatches ? t('ktc.show_less') : t('ktc.show_all');
+          toggleBtn.onclick = () => {
+            showAllRecentMatches = !showAllRecentMatches;
+            renderRecentMatches();
+          };
+        } else {
+          toggleBtn.classList.add('hidden');
+          toggleBtn.onclick = null;
+          if (showAllRecentMatches) showAllRecentMatches = false;
+        }
+      }
       // wire delete
       $$('[data-delete-match]').forEach(btn => btn.addEventListener('click', e => {
         e.stopPropagation();
