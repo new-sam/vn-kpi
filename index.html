@@ -16,10 +16,18 @@
       --ink: #18181b;
       --ink-soft: #52525b;
       --ink-muted: #a1a1aa;
-      --accent: #18181b;
+      --accent: #4f46e5;        /* indigo — primary accent */
+      --accent-soft: #eef2ff;
+      --accent-ink: #4338ca;
       --green: #16a34a;
+      --green-soft: #ecfdf5;
       --amber: #d97706;
+      --amber-soft: #fffbeb;
       --red: #dc2626;
+      --red-soft: #fef2f2;
+      --ch-jeongseok: #18181b;
+      --ch-vietnam: #3b82f6;
+      --ch-hacking: #a855f7;
     }
     html, body {
       background: var(--bg);
@@ -35,9 +43,15 @@
     .ink-muted { color: var(--ink-muted); }
 
     /* Tab */
-    .tab { color: var(--ink-muted); padding: 14px 0; border-bottom: 2px solid transparent; transition: all .15s; cursor: pointer; }
+    .tab { color: var(--ink-muted); padding: 14px 0; border-bottom: 2px solid transparent; transition: all .15s; cursor: pointer; font-weight: 500; }
     .tab:hover { color: var(--ink-soft); }
-    .tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+    .tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+    .tab .tab-badge {
+      display: inline-block; margin-left: 6px; padding: 1px 7px;
+      font-size: 11px; font-weight: 600; border-radius: 999px;
+      background: #f4f4f3; color: var(--ink-soft); letter-spacing: -0.005em;
+    }
+    .tab.active .tab-badge { background: var(--accent-soft); color: var(--accent-ink); }
 
     /* Progress */
     .bar { background: #f0f0ee; border-radius: 999px; overflow: hidden; }
@@ -55,9 +69,44 @@
     .proj-tag { font-size: 9px; padding: 1px 5px; border-radius: 3px; background: #f4f4f3; color: var(--ink-soft); font-weight: 500; letter-spacing: 0.2px; }
 
     /* Annual context strip — 슬림 progress bar */
-    .annual-strip { padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-    .annual-bar { height: 6px; border-radius: 999px; background: #ececea; overflow: hidden; }
-    .annual-bar-fill { height: 100%; background: var(--ink); border-radius: 999px; transition: width .25s ease; }
+    .annual-strip { padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+    .annual-bar { height: 8px; border-radius: 999px; background: #ececea; overflow: hidden; position: relative; }
+    .annual-bar-fill { height: 100%; border-radius: 999px; transition: width .35s ease;
+                       background: linear-gradient(90deg, #6366f1, #8b5cf6); }
+    .annual-bar-fill.ok    { background: linear-gradient(90deg, #10b981, #16a34a); }
+    .annual-bar-fill.warn  { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .annual-bar-fill.danger{ background: linear-gradient(90deg, #ef4444, #dc2626); }
+    /* 진행률 기준 마커 (오늘 시점의 페이스 라인) — bar 내부, clipped 자연스럽게 */
+    .annual-bar-pace { position: absolute; top: 0; bottom: 0; width: 2px;
+                       background: rgba(255,255,255,0.85); box-shadow: 0 0 0 1px rgba(0,0,0,0.35);
+                       pointer-events: none; z-index: 2; }
+
+    /* ===== Hero 카드 ===== */
+    .hero-card {
+      position: relative;
+      background: linear-gradient(180deg, #ffffff 0%, #fafaf9 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 24px 20px;
+      box-shadow: 0 1px 2px rgba(24,24,27,0.03), 0 8px 24px -12px rgba(79,70,229,0.08);
+      overflow: hidden;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute; left: 0; top: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+      border-radius: 14px 14px 0 0;
+    }
+    .hero-card.is-ok::before    { background: linear-gradient(90deg, #10b981, #16a34a); }
+    .hero-card.is-warn::before  { background: linear-gradient(90deg, #f59e0b, #d97706); }
+    .hero-card.is-danger::before{ background: linear-gradient(90deg, #ef4444, #dc2626); }
+
+    /* Big number coloring (월 실측) */
+    .big-num { font-size: 40px; font-weight: 700; letter-spacing: -0.025em; line-height: 1; color: var(--ink); transition: color .2s; }
+    .big-num.ok    { color: #16a34a; }
+    .big-num.warn  { color: #d97706; }
+    .big-num.danger{ color: #dc2626; }
+    .proj-num { font-size: 30px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; color: var(--ink-soft); }
 
     /* Row hover */
     .row { transition: background .12s; }
@@ -137,10 +186,15 @@
     .insight.ok .ins-main { color: #16a34a; }
 
     /* ===== Channel mini (Hero) — 당월 목표 + 프로젝션 ===== */
-    .ch-mini { padding: 4px 2px; }
+    .ch-mini { padding: 12px 12px 10px; border-radius: 10px; border: 1px solid var(--border);
+               background: #fff; border-left-width: 3px; transition: box-shadow .15s, transform .15s; }
+    .ch-mini:hover { box-shadow: 0 4px 12px -4px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .ch-mini.ch-jeongseok { border-left-color: var(--ch-jeongseok); }
+    .ch-mini.ch-vietnam   { border-left-color: var(--ch-vietnam); background: linear-gradient(180deg, #fff 0%, #f5f9ff 100%); }
+    .ch-mini.ch-hacking   { border-left-color: var(--ch-hacking); background: linear-gradient(180deg, #fff 0%, #faf5ff 100%); }
     .ch-mini-head { display: flex; align-items: baseline; justify-content: space-between; }
-    .ch-mini-name { font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
-    .ch-bar { display: flex; height: 7px; margin-top: 8px; }
+    .ch-mini-name { font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 7px; letter-spacing: -0.01em; }
+    .ch-bar { display: flex; height: 8px; margin-top: 10px; background: rgba(0,0,0,0.04); border-radius: 999px; overflow: hidden; }
     .ch-bar > span { height: 100%; display: block; border-radius: 0; transition: width .4s; }
     .ch-bar .seg-verbal { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.62) 0 2px, transparent 2px 5px); }
     .ch-gap { margin-top: 10px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; font-size: 14px; }
@@ -363,13 +417,13 @@
   <nav class="border-b hairline">
     <div class="max-w-[840px] mx-auto px-6 flex items-center gap-7">
       <div class="tab active" data-tab="ktc">
-        <span data-i18n="tab.ktc">KTC 매칭</span> <span class="ink-muted tnum text-xs ml-1" id="tabKtcBadge">47/200</span>
+        <span data-i18n="tab.ktc">KTC 매칭</span> <span class="tab-badge tnum" id="tabKtcBadge">47/200</span>
       </div>
       <div class="tab" data-tab="biz">
-        <span data-i18n="tab.biz">신사업</span> <span class="ink-muted tnum text-xs ml-1" id="tabBizBadge">₩0/5M</span>
+        <span data-i18n="tab.biz">신사업</span> <span class="tab-badge tnum" id="tabBizBadge">₩0/5M</span>
       </div>
       <div class="tab" data-tab="community">
-        <span data-i18n="tab.community">커뮤니티</span> <span class="ink-muted tnum text-xs ml-1" id="tabCommBadge">0/0</span>
+        <span data-i18n="tab.community">커뮤니티</span> <span class="tab-badge tnum" id="tabCommBadge">0/0</span>
       </div>
     </div>
   </nav>
@@ -385,6 +439,8 @@
           <div class="section-label" data-i18n="ktc.section">매칭 달성 현황</div>
           <div class="text-xs ink-muted">2026 · 연간 목표 <span id="annualTargetEdit" class="cell-edit tnum" title="클릭하여 수정">200</span>명</div>
         </div>
+
+        <div class="hero-card" id="heroCard">
         <!-- 연간 누적 (context strip) -->
         <div class="annual-strip mb-6">
           <div class="flex items-baseline justify-between mb-2">
@@ -401,23 +457,24 @@
         <div class="grid grid-cols-2 gap-6 items-start">
           <!-- 이번 달 현황 (실측) -->
           <div>
-            <div class="text-[11px] ink-muted mb-1"><span data-i18n="ktc.month">이번 달</span> <span id="ktcMonthNo">—월</span></div>
+            <div class="text-[11px] ink-muted mb-1.5"><span data-i18n="ktc.month">이번 달</span> <span id="ktcMonthNo">—월</span></div>
             <div class="flex items-baseline gap-2">
-              <span class="text-4xl font-semibold tnum tracking-tight" id="ktcMonthVal">0</span>
+              <span class="big-num tnum" id="ktcMonthVal">0</span>
               <span class="text-lg ink-muted tnum">/ <span id="ktcMonthTarget">0</span></span>
             </div>
             <div class="mt-2"><span class="pill bg-zinc-100 text-zinc-600" id="ktcMonthPill">달성률 0%</span></div>
           </div>
           <!-- 이번 달 예측 (파생) -->
           <div class="pl-6 proj-col">
-            <div class="text-[11px] ink-soft mb-1"><span id="ktcProjMonthNo">—월</span> 예측</div>
+            <div class="text-[11px] ink-soft mb-1.5"><span id="ktcProjMonthNo">—월</span> 예측</div>
             <div class="flex items-baseline gap-2">
-              <span class="text-3xl font-normal tnum tracking-tight ink-soft" id="ktcProjVal">0</span>
+              <span class="proj-num tnum" id="ktcProjVal">0</span>
               <span class="text-base ink-soft tnum">/ <span id="ktcProjTarget">0</span></span>
             </div>
             <div class="mt-2"><span class="pill pill-ghost" id="ktcProjPill">예측 0%</span></div>
           </div>
         </div>
+        </div><!-- /hero-card -->
 
         <!-- 한 줄 인사이트 (이번 달 % + 페이스 평어) -->
         <div id="heroInsight" class="insight" style="display:none">
@@ -426,7 +483,7 @@
         </div>
 
         <!-- 채널별 미니 진행도 -->
-        <div id="channelMiniRow" class="mt-5 grid grid-cols-3 gap-x-6 gap-y-3 p-4 bg-white border hairline rounded-lg">
+        <div id="channelMiniRow" class="mt-5 grid grid-cols-3 gap-3">
           <!-- rendered by JS -->
         </div>
 
@@ -462,7 +519,7 @@
         <!-- Legend -->
         <div class="mt-3 flex items-center justify-between text-xs">
           <div class="flex items-center gap-4 ink-muted">
-            <span class="flex items-center gap-1.5"><span class="block w-4 h-px bg-zinc-900" style="height: 2px;"></span>실적</span>
+            <span class="flex items-center gap-1.5"><span class="block w-4" style="height: 2px; background: linear-gradient(90deg,#6366f1,#8b5cf6); border-radius: 1px;"></span>실적</span>
             <span class="flex items-center gap-1.5"><span class="block w-4 border-t border-dashed border-zinc-400"></span>목표</span>
           </div>
           <div class="ink-muted" id="chartSummary">데이터 없음</div>
@@ -1937,7 +1994,38 @@
       annualPill.className = `pill ${acls}`;
       annualPill.title = `현재 ${total}명 / 연간 목표 ${state.annualMatchTarget}명 · 시간 경과 ${Math.round(elapsedPct)}% (${state.currentWeek}/52주차)`;
       const annualBar = $('#annualBarFill');
-      if (annualBar) annualBar.style.width = Math.min(100, annualPct) + '%';
+      if (annualBar) {
+        annualBar.style.width = Math.min(100, annualPct) + '%';
+        // 페이스 대비 색
+        let barCls = '';
+        if (annualPct >= elapsedPct) barCls = 'ok';
+        else if (annualPct >= elapsedPct * 0.75) barCls = 'warn';
+        else if (state.annualMatchTarget > 0) barCls = 'danger';
+        annualBar.className = `annual-bar-fill ${barCls}`;
+        // 페이스 마커 (오늘 위치) 갱신/삽입
+        const barWrap = annualBar.parentElement;
+        let pace = barWrap.querySelector('.annual-bar-pace');
+        if (state.annualMatchTarget > 0) {
+          if (!pace) {
+            pace = document.createElement('div');
+            pace.className = 'annual-bar-pace';
+            barWrap.appendChild(pace);
+          }
+          pace.style.left = Math.min(100, elapsedPct) + '%';
+        } else if (pace) {
+          pace.remove();
+        }
+      }
+      // 히어로 카드 상단 컬러 스트립 — 연간 페이스 기준
+      const heroCard = $('#heroCard');
+      if (heroCard) {
+        heroCard.classList.remove('is-ok', 'is-warn', 'is-danger');
+        if (state.annualMatchTarget > 0) {
+          if (annualPct >= elapsedPct) heroCard.classList.add('is-ok');
+          else if (annualPct >= elapsedPct * 0.75) heroCard.classList.add('is-warn');
+          else heroCard.classList.add('is-danger');
+        }
+      }
 
       // ── 이번 달 ──
       const cm = state.currentMonth;
@@ -1948,18 +2036,21 @@
       $('#ktcMonthTarget').textContent = cmTarget;
       $('#ktcMonthNo').textContent = `${cm}월`;
       const monthPill = $('#ktcMonthPill');
+      const monthValEl = $('#ktcMonthVal');
+      if (monthValEl) monthValEl.classList.remove('ok', 'warn', 'danger');
       if (cmTarget === 0) {
         monthPill.textContent = '목표 미설정';
         monthPill.className = 'pill bg-zinc-100 text-zinc-600';
       } else {
         const mPct = Math.round(cmDone / cmTarget * 100);
         monthPill.textContent = `달성률 ${mPct}%`;
-        let mcls;
-        if (mPct >= 100) mcls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-        else if (mPct >= 75) mcls = 'bg-amber-50 text-amber-700 border border-amber-200';
-        else mcls = 'bg-red-50 text-red-700 border border-red-200';
+        let mcls, numCls;
+        if (mPct >= 100) { mcls = 'bg-emerald-50 text-emerald-700 border border-emerald-200'; numCls = 'ok'; }
+        else if (mPct >= 75) { mcls = 'bg-amber-50 text-amber-700 border border-amber-200'; numCls = 'warn'; }
+        else { mcls = 'bg-red-50 text-red-700 border border-red-200'; numCls = 'danger'; }
         monthPill.className = `pill ${mcls}`;
         monthPill.title = `${cm}월 ${cmDone}명 / 목표 ${cmTarget}명`;
+        if (monthValEl) monthValEl.classList.add(numCls);
       }
 
       // ── 이번 달 예측 (확정 + 구두채용) ──
@@ -1977,7 +2068,11 @@
         } else {
           const pPct = Math.round(projVal / cmTarget * 100);
           projPill.textContent = `달성률 ${pPct}%`;
-          projPill.className = 'pill pill-ghost';
+          let pcls;
+          if (pPct >= 100) pcls = 'bg-emerald-50 text-emerald-700 border border-emerald-200';
+          else if (pPct >= 75) pcls = 'bg-amber-50 text-amber-700 border border-amber-200';
+          else pcls = 'bg-red-50 text-red-700 border border-red-200';
+          projPill.className = `pill ${pcls}`;
           projPill.title = `${cm}월 예측 ${projVal}명 / 목표 ${cmTarget}명`;
         }
       }
@@ -2106,10 +2201,16 @@
       const lastX = 40 + state.currentWeek * (480/52);
       const lastY = 170 - Math.min(cum, 200) * (150/200);
       ga.innerHTML = `
-        <polyline fill="none" stroke="#18181b" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${points.join(' ')}"/>
-        <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="5" fill="#18181b" fill-opacity="0.12"/>
-        <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3" fill="#18181b"/>
-        <text x="${(lastX-6).toFixed(1)}" y="${(lastY-6).toFixed(1)}" font-size="10" fill="#18181b" text-anchor="end" font-weight="600" font-family="Pretendard">${cum}</text>
+        <defs>
+          <linearGradient id="actualGrad" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stop-color="#6366f1"/>
+            <stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <polyline fill="none" stroke="url(#actualGrad)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${points.join(' ')}"/>
+        <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="6" fill="#8b5cf6" fill-opacity="0.18"/>
+        <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3.5" fill="#7c3aed"/>
+        <text x="${(lastX-6).toFixed(1)}" y="${(lastY-6).toFixed(1)}" font-size="10" fill="#6d28d9" text-anchor="end" font-weight="700" font-family="Pretendard">${cum}</text>
       `;
       if (summary) {
         const annualPct = state.annualMatchTarget ? Math.round(cum/state.annualMatchTarget*100) : 0;
@@ -2185,7 +2286,7 @@
         }
 
         return `
-          <div class="ch-mini">
+          <div class="ch-mini ch-${c.key}">
             <div class="ch-mini-head">
               <span class="ch-mini-name"><span class="ch-dot" style="background:${c.color}"></span>${c.label}</span>
             </div>
