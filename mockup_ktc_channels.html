@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KTC 채널 추가 · 달력뷰 목업</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.min.css" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #fafaf9;
+      --card: #ffffff;
+      --border: #ececea;
+      --border-strong: #d6d6d3;
+      --ink: #18181b;
+      --ink-soft: #52525b;
+      --ink-muted: #a1a1aa;
+      --green: #16a34a;
+      --green-soft: #f0fdf4;
+      --green-strong: #dcfce7;
+      --amber: #d97706;
+      --amber-soft: #fffbeb;
+      --red: #dc2626;
+      --red-soft: #fef2f2;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+    }
+    html, body {
+      background: var(--bg); color: var(--ink);
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased; letter-spacing: -0.01em;
+    }
+    .tnum { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+    .hairline { border-color: var(--border); }
+    .ink-soft { color: var(--ink-soft); }
+    .ink-muted { color: var(--ink-muted); }
+    .section-label { font-size: 11px; font-weight: 600; color: var(--ink-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px; font-size: 11px; font-weight: 500; }
+    .bar { background: #f0f0ee; border-radius: 999px; overflow: hidden; height: 6px; }
+    .bar > span { display: block; height: 100%; background: var(--ink); border-radius: 999px; transition: width .4s; }
+
+    /* NEW marker (mockup only) */
+    .new-mark { position: relative; }
+    .new-mark::before {
+      content: 'NEW'; position: absolute; top: -8px; left: -8px;
+      font-size: 9px; font-weight: 700; color: var(--blue);
+      background: var(--blue-soft); padding: 1px 5px; border-radius: 4px;
+      letter-spacing: 0.04em; z-index: 2;
+    }
+    .new-outline { box-shadow: 0 0 0 1.5px var(--blue); border-radius: 6px; }
+
+    .ch-dot { display: inline-block; width: 7px; height: 7px; border-radius: 2px; }
+    .ch-chip { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--ink-soft); }
+
+    /* Event tag */
+    .ev-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 7px; border-radius: 6px; font-size: 10px; font-weight: 500;
+      line-height: 1.3; white-space: nowrap;
+    }
+    .ev-tag.good { background: var(--blue-soft); color: var(--blue); }
+    .ev-tag.bad  { background: var(--red-soft);  color: var(--red); }
+    .ev-tag.stack { flex-direction: column; align-items: flex-start; gap: 1px; padding: 4px 7px 5px; }
+    .ev-tag.stack .ttl { font-weight: 600; }
+    .ev-tag.stack .sub { font-size: 9px; opacity: .85; font-weight: 400; }
+
+    /* ====== Calendar Matrix ====== */
+    .matrix-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    table.mx { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+    table.mx th, table.mx td { padding: 0; border-bottom: 1px solid var(--border); }
+    table.mx thead th {
+      font-weight: 500; color: var(--ink-soft); font-size: 12px;
+      background: #fafaf8; border-bottom: 1px solid var(--border-strong);
+      padding: 8px 10px; vertical-align: bottom; text-align: center;
+    }
+    table.mx thead th:first-child { text-align: left; }
+
+    .ev-row th { background: white; border-bottom: 0; padding: 12px 6px 4px; }
+
+    .mo-h .mo-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+    .mo-h .mo-meta { font-size: 10px; color: var(--ink-muted); margin-top: 2px; }
+    .mo-h.current { background: var(--blue-soft) !important; }
+    .mo-h.current .mo-name { color: var(--blue); }
+    .mo-h.current::after { content: '진행 중'; display: block; font-size: 9px; color: var(--blue); font-weight: 600; margin-top: 2px; }
+
+    .ch-cell {
+      padding: 12px 14px !important; text-align: left !important;
+      border-right: 1px solid var(--border); width: 130px;
+    }
+    .ch-cell .nm { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
+    .ch-cell .gt { font-size: 11px; color: var(--ink-muted); margin-top: 3px; margin-left: 16px; }
+
+    td.dc { padding: 6px !important; position: relative; vertical-align: top; min-width: 84px; }
+    .cell {
+      position: relative; padding: 8px 10px; border-radius: 6px; min-height: 58px;
+      display: flex; flex-direction: column; gap: 4px;
+      transition: box-shadow .12s, background .12s; cursor: pointer;
+    }
+    .cell:hover { box-shadow: 0 0 0 1.5px var(--ink) inset; background: white !important; }
+    .cell.dim { opacity: 0.55; cursor: default; }
+    .cell.dim:hover { box-shadow: none; }
+
+    .cell .top { display: flex; align-items: baseline; justify-content: space-between; gap: 4px; }
+    .cell .actual { font-size: 17px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; }
+    .cell .actual.zero { color: var(--ink-muted); font-weight: 500; }
+    .cell .actual.dash { color: #d4d4d8; font-weight: 400; }
+    .cell .target { font-size: 11px; color: var(--ink-muted); }
+    .cell .mini-bar { height: 4px; background: rgba(0,0,0,0.06); border-radius: 999px; overflow: hidden; margin-top: 2px; }
+    .cell .mini-bar > span { display: block; height: 100%; border-radius: 999px; }
+    .cell .bottom { display: flex; justify-content: space-between; align-items: center; font-size: 10px; }
+    .cell .pct { font-weight: 500; }
+    .cell .gap { color: var(--ink-muted); }
+
+    /* Heat colors (current/past only) */
+    .cell.h-danger { background: var(--red-soft); }
+    .cell.h-danger .pct { color: var(--red); } .cell.h-danger .mini-bar > span { background: var(--red); }
+    .cell.h-warn { background: var(--amber-soft); }
+    .cell.h-warn .pct { color: var(--amber); } .cell.h-warn .mini-bar > span { background: var(--amber); }
+    .cell.h-ok { background: var(--green-soft); }
+    .cell.h-ok .pct { color: var(--green); } .cell.h-ok .mini-bar > span { background: var(--green); }
+    .cell.h-over { background: var(--green-strong); }
+    .cell.h-over .pct { color: var(--green); } .cell.h-over .mini-bar > span { background: var(--green); }
+    .cell.future .actual { color: #d4d4d8; }
+    .cell.future .pct { color: var(--ink-muted); }
+    .cell.future .mini-bar > span { background: #d4d4d8; }
+
+    tr.total td { background: #fafaf8 !important; border-top: 1px solid var(--border-strong); }
+    tr.total .ch-cell { font-weight: 600; }
+    tr.total .cell .actual { font-size: 19px; font-weight: 700; }
+
+    tr.cum td { background: #fafaf8 !important; }
+    tr.cum .ch-cell { color: var(--ink-muted); font-weight: 500; font-size: 12px; }
+    tr.cum .cum-cell { padding: 10px 14px !important; font-size: 12px; color: var(--ink-soft); text-align: center; }
+    tr.cum .cum-cell .v { font-weight: 600; color: var(--ink); }
+
+    tr.share td { background: #fafaf8 !important; color: var(--ink-muted); font-size: 11px; }
+    tr.share .share-cell { padding: 8px 14px !important; text-align: center; }
+
+    /* View tabs */
+    .view-tabs { display: inline-flex; background: #f0f0ee; border-radius: 7px; padding: 2px; gap: 2px; }
+    .view-tab { padding: 4px 10px; font-size: 11px; border-radius: 5px; cursor: pointer; color: var(--ink-soft); user-select: none; display: inline-flex; align-items: center; gap: 5px; }
+    .view-tab.active { background: white; color: var(--ink); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+
+    .cell-edit { cursor: text; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; }
+    .cell-edit:hover { background: white; box-shadow: 0 0 0 1px var(--border-strong) inset; }
+
+    .annotation {
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
+      padding: 10px 12px; font-size: 12px; color: #92400e;
+      display: flex; gap: 8px; align-items: flex-start;
+    }
+
+    /* Drill-down panel (simulated) */
+    .drill {
+      margin-top: 10px; padding: 14px 16px; background: white;
+      border: 1px solid var(--border-strong); border-radius: 8px;
+    }
+    .drill .hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .drill .ttl { font-size: 13px; font-weight: 600; }
+    .drill .close { font-size: 11px; color: var(--ink-muted); cursor: pointer; padding: 4px 8px; border-radius: 5px; }
+    .drill .close:hover { background: #f5f5f4; color: var(--ink); }
+    .drill .item { display: grid; grid-template-columns: 60px 1fr 80px 60px; gap: 8px; padding: 6px 0; font-size: 12px; border-top: 1px dashed var(--border); align-items: center; }
+    .drill .item:first-of-type { border-top: 0; }
+    .drill .item .nm { font-weight: 500; }
+    .drill .item .co { color: var(--ink-soft); }
+    .drill .item .dt { color: var(--ink-muted); font-size: 11px; }
+    .drill .item .st { text-align: right; }
+  </style>
+</head>
+<body class="min-h-screen">
+  <div class="max-w-[1180px] mx-auto px-6 py-10">
+
+    <div class="mb-8">
+      <div class="section-label mb-1">KTC 패널 변경안 v4</div>
+      <h1 class="text-xl font-semibold tracking-tight">달력뷰 매트릭스 · 주차별 제거</h1>
+      <div class="text-xs ink-muted mt-1">매칭 입력은 기존 폼 그대로 · 매트릭스는 집계·드릴다운 전용</div>
+    </div>
+
+    <div class="annotation mb-8">
+      <span>📌</span>
+      <div>
+        <b>변경 4곳</b> — ① 매칭 폼: 채널 select · ② Hero 아래: 채널 미니 진행도 · ③ <b>주차별 details 제거 → 채널×월 매트릭스로 교체</b> · ④ 월 헤더: 호재/악재 라벨.
+        매트릭스 셀은 클릭만 — 입력 X, 그 달·그 채널 매칭 리스트로 드릴다운.
+      </div>
+    </div>
+
+    <!-- =========================================================
+         ① HERO (기존 그대로 + 채널 미니 진행도)
+         ========================================================= -->
+    <section class="mb-10">
+      <div class="flex items-center justify-between mb-4">
+        <div class="section-label">매칭 달성 현황</div>
+        <div class="text-xs ink-muted">2026 · 연간 목표 <span class="cell-edit tnum">200</span>명</div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-6 items-start">
+        <div>
+          <div class="text-[11px] ink-muted mb-1">연간 누적</div>
+          <div class="flex items-baseline gap-2">
+            <span class="text-4xl font-semibold tnum tracking-tight">12</span>
+            <span class="text-lg ink-muted tnum">/ 200</span>
+          </div>
+          <div class="mt-2"><span class="pill bg-zinc-100 text-zinc-600">연간 달성률 6%</span></div>
+        </div>
+        <div class="border-l hairline pl-6">
+          <div class="text-[11px] ink-muted mb-1">이번 달 <span class="tnum">5월</span></div>
+          <div class="flex items-baseline gap-2">
+            <span class="text-4xl font-semibold tnum tracking-tight">12</span>
+            <span class="text-lg ink-muted tnum">/ 20</span>
+          </div>
+          <div class="mt-2"><span class="pill bg-amber-50 text-amber-700">이번 달 달성률 60%</span></div>
+        </div>
+      </div>
+
+      <!-- ✨ NEW: 채널별 미니 진행도 -->
+      <div class="new-mark new-outline mt-5 grid grid-cols-3 gap-6 p-3 bg-white">
+        <div class="flex items-center gap-3">
+          <span class="ch-dot" style="background:#18181b"></span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs font-medium">정석</span>
+              <span class="text-[11px] ink-muted tnum">12 / 100</span>
+            </div>
+            <div class="bar mt-1"><span style="width:12%"></span></div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="ch-dot" style="background:#3b82f6"></span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs font-medium">베트남</span>
+              <span class="text-[11px] ink-muted tnum">0 / 60</span>
+            </div>
+            <div class="bar mt-1"><span style="width:0%; background:#3b82f6"></span></div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="ch-dot" style="background:#a855f7"></span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline justify-between">
+              <span class="text-xs font-medium">해킹</span>
+              <span class="text-[11px] ink-muted tnum">0 / 40</span>
+            </div>
+            <div class="bar mt-1"><span style="width:0%; background:#a855f7"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-6 p-6 bg-white border hairline rounded-lg text-center text-xs ink-muted">
+        ⎯⎯⎯ 누적 차트 영역 (기존 그대로) ⎯⎯⎯
+      </div>
+    </section>
+
+    <!-- =========================================================
+         ③ 달력뷰 매트릭스 (주차별 details 제거 → 이걸로 교체)
+         ========================================================= -->
+    <section class="mb-10">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <div class="section-label">월별 달력뷰 · 채널 × 월</div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="view-tabs">
+            <span class="view-tab active">합계</span>
+            <span class="view-tab"><span class="ch-dot" style="background:#18181b"></span>정석</span>
+            <span class="view-tab"><span class="ch-dot" style="background:#3b82f6"></span>베트남</span>
+            <span class="view-tab"><span class="ch-dot" style="background:#a855f7"></span>해킹</span>
+          </div>
+          <button class="text-xs ink-soft hover:text-zinc-900 px-2 py-1 rounded-md hover:bg-zinc-100">목표 편집</button>
+        </div>
+      </div>
+
+      <div class="matrix-wrap">
+        <table class="mx">
+          <thead>
+            <tr class="ev-row">
+              <th></th>
+              <th><span class="ev-tag stack good"><span class="ttl">★ 호치민</span><span class="sub">매칭위크</span></span></th>
+              <th><span class="ev-tag stack good"><span class="ttl">★ 다낭</span><span class="sub">VN 대졸</span></span></th>
+              <th><span class="ev-tag bad">△ 휴가철</span></th>
+              <th><span class="ev-tag bad">△ 휴가철</span></th>
+              <th><span class="ev-tag stack good"><span class="ttl">★ 호치민</span><span class="sub">한국 하반기</span></span></th>
+              <th></th>
+              <th><span class="ev-tag good">★ 하노이</span></th>
+            </tr>
+            <tr>
+              <th></th>
+              <th class="mo-h current"><div class="mo-name">5월</div><div class="mo-meta">13/31일</div></th>
+              <th class="mo-h"><div class="mo-name">6월</div><div class="mo-meta">예정</div></th>
+              <th class="mo-h"><div class="mo-name">7월</div><div class="mo-meta">예정</div></th>
+              <th class="mo-h"><div class="mo-name">8월</div><div class="mo-meta">예정</div></th>
+              <th class="mo-h"><div class="mo-name">9월</div><div class="mo-meta">예정</div></th>
+              <th class="mo-h"><div class="mo-name">10월</div><div class="mo-meta">예정</div></th>
+              <th class="mo-h"><div class="mo-name">11월</div><div class="mo-meta">예정</div></th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- 정석 -->
+            <tr>
+              <td class="ch-cell">
+                <div class="nm"><span class="ch-dot" style="background:#18181b"></span>정석</div>
+                <div class="gt">연 100 · 12/100</div>
+              </td>
+              <td class="dc">
+                <div class="cell h-warn" data-drill="5-jeongseok">
+                  <div class="top"><span class="actual tnum">12</span><span class="target tnum">/ 20</span></div>
+                  <div class="mini-bar"><span style="width:60%"></span></div>
+                  <div class="bottom"><span class="pct">60%</span><span class="gap">−8</span></div>
+                </div>
+              </td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 20</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−20</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 10</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−10</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 10</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−10</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 15</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−15</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 15</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−15</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 10</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−10</span></div></div></td>
+            </tr>
+            <!-- 베트남 -->
+            <tr>
+              <td class="ch-cell">
+                <div class="nm"><span class="ch-dot" style="background:#3b82f6"></span>베트남</div>
+                <div class="gt">연 60 · 0/60</div>
+              </td>
+              <td class="dc"><div class="cell dim"><div class="top"><span class="actual dash">—</span><span class="target tnum">/ 0</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 5</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−5</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 10</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−10</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 15</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−15</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 15</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−15</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 10</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−10</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 5</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−5</span></div></div></td>
+            </tr>
+            <!-- 해킹 -->
+            <tr>
+              <td class="ch-cell">
+                <div class="nm"><span class="ch-dot" style="background:#a855f7"></span>해킹</div>
+                <div class="gt">연 40 · 0/40</div>
+              </td>
+              <td class="dc"><div class="cell dim"><div class="top"><span class="actual dash">—</span><span class="target tnum">/ 0</span></div></div></td>
+              <td class="dc"><div class="cell dim"><div class="top"><span class="actual dash">—</span><span class="target tnum">/ 0</span></div></div></td>
+              <td class="dc"><div class="cell dim"><div class="top"><span class="actual dash">—</span><span class="target tnum">/ 0</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 10</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−10</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 20</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−20</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 10</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−10</span></div></div></td>
+              <td class="dc"><div class="cell dim"><div class="top"><span class="actual dash">—</span><span class="target tnum">/ 0</span></div></div></td>
+            </tr>
+            <!-- TOTAL -->
+            <tr class="total">
+              <td class="ch-cell">
+                <div class="nm">TOTAL</div>
+                <div class="gt">연 200 · 12/200</div>
+              </td>
+              <td class="dc">
+                <div class="cell h-warn">
+                  <div class="top"><span class="actual tnum">12</span><span class="target tnum">/ 20</span></div>
+                  <div class="mini-bar"><span style="width:60%"></span></div>
+                  <div class="bottom"><span class="pct">60%</span><span class="gap">−8</span></div>
+                </div>
+              </td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 25</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−25</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 20</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−20</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 35</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−35</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 50</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−50</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 35</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−35</span></div></div></td>
+              <td class="dc"><div class="cell future"><div class="top"><span class="actual tnum zero">0</span><span class="target tnum">/ 15</span></div><div class="mini-bar"><span style="width:0%"></span></div><div class="bottom"><span class="pct">계획</span><span class="gap">−15</span></div></div></td>
+            </tr>
+            <tr class="cum">
+              <td class="ch-cell">누적</td>
+              <td class="cum-cell"><span class="v tnum">12</span> <span class="ink-muted tnum">/ 20</span></td>
+              <td class="cum-cell"><span class="ink-muted tnum">12</span> <span class="ink-muted tnum">/ 45</span></td>
+              <td class="cum-cell"><span class="ink-muted tnum">12</span> <span class="ink-muted tnum">/ 65</span></td>
+              <td class="cum-cell"><span class="ink-muted tnum">12</span> <span class="ink-muted tnum">/ 100</span></td>
+              <td class="cum-cell"><span class="ink-muted tnum">12</span> <span class="ink-muted tnum">/ 150</span></td>
+              <td class="cum-cell"><span class="ink-muted tnum">12</span> <span class="ink-muted tnum">/ 185</span></td>
+              <td class="cum-cell"><span class="ink-muted tnum">12</span> <span class="ink-muted tnum">/ 200</span></td>
+            </tr>
+            <tr class="share">
+              <td class="ch-cell">월 비중</td>
+              <td class="share-cell">10%</td>
+              <td class="share-cell">12.5%</td>
+              <td class="share-cell">10%</td>
+              <td class="share-cell">17.5%</td>
+              <td class="share-cell">25%</td>
+              <td class="share-cell">17.5%</td>
+              <td class="share-cell">7.5%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="text-[11px] ink-muted mt-2 px-1">셀 클릭 → 그 달·채널의 매칭 리스트 펼침 (입력은 매칭 폼에서)</div>
+
+      <!-- Drill-down example (펼쳐진 상태) -->
+      <div class="drill" id="drillPanel">
+        <div class="hd">
+          <div class="ttl">
+            <span class="ch-dot" style="background:#18181b"></span>
+            정석 · 5월 매칭 12건
+          </div>
+          <span class="close">닫기 ✕</span>
+        </div>
+        <div class="item"><span class="dt">5/12</span><span class="nm">김OO</span><span class="co">A커머스 / 백엔드</span><span class="st"><span class="pill bg-green-50 text-green-700">확정</span></span></div>
+        <div class="item"><span class="dt">5/10</span><span class="nm">박OO</span><span class="co">B핀테크 / PM</span><span class="st"><span class="pill bg-green-50 text-green-700">확정</span></span></div>
+        <div class="item"><span class="dt">5/8</span><span class="nm">이OO</span><span class="co">C리테일 / 마케팅</span><span class="st"><span class="pill bg-green-50 text-green-700">확정</span></span></div>
+        <div class="item"><span class="dt">5/7</span><span class="nm">최OO</span><span class="co">D스타트업 / 디자인</span><span class="st"><span class="pill bg-green-50 text-green-700">확정</span></span></div>
+        <div class="item ink-muted"><span></span><span>+8건 더…</span><span></span><span></span></div>
+      </div>
+    </section>
+
+    <!-- =========================================================
+         ② 매칭 추가 폼 (기존 그대로 + 채널 select)
+         ========================================================= -->
+    <section class="mb-10">
+      <div class="section-label mb-3">매칭 추가 폼</div>
+      <form class="p-4 bg-white border hairline rounded-lg space-y-3">
+        <div class="text-xs font-medium mb-2">새 매칭 추가</div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <input placeholder="인재 이름 *" class="text-sm border hairline rounded-md px-3 py-2" />
+          <input placeholder="기업명 *" class="text-sm border hairline rounded-md px-3 py-2" />
+          <input placeholder="직무" class="text-sm border hairline rounded-md px-3 py-2" />
+          <input type="date" value="2026-05-13" class="text-sm border hairline rounded-md px-3 py-2" />
+          <select class="text-sm border hairline rounded-md px-3 py-2">
+            <option>소스: 웍스피어 (리드)</option>
+            <option>소스: 자체 발굴 (리드 X)</option>
+          </select>
+          <select class="text-sm border hairline rounded-md px-3 py-2">
+            <option>단계: 리드</option>
+            <option>단계: 서류 통과</option>
+            <option>단계: 인터뷰</option>
+            <option>단계: 확정 매칭</option>
+          </select>
+          <div class="new-mark col-span-2">
+            <select class="text-sm border new-outline rounded-md px-3 py-2 w-full bg-white">
+              <option>채널: 정석</option>
+              <option>채널: 베트남</option>
+              <option>채널: 해킹</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-1">
+          <button type="button" class="text-xs ink-soft px-3 py-1.5 rounded-md hover:bg-zinc-100">취소</button>
+          <button type="submit" class="text-xs bg-zinc-900 text-white px-3 py-1.5 rounded-md">저장 ⏎</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- 변경 요약 -->
+    <section class="mb-8">
+      <div class="section-label mb-3">변경 · 제거 요약</div>
+      <div class="bg-white border hairline rounded-lg overflow-hidden text-sm">
+        <div class="grid grid-cols-[80px_1fr] gap-0 border-b hairline">
+          <div class="px-4 py-3 bg-red-50 text-xs text-red-700 font-medium">제거</div>
+          <div class="px-4 py-3">월별·주차별 details 리스트 (W18/W19/W20/W21 행) · Hero "이번 주" 카드</div>
+        </div>
+        <div class="grid grid-cols-[80px_1fr] gap-0 border-b hairline">
+          <div class="px-4 py-3 bg-blue-50 text-xs text-blue-700 font-medium">추가</div>
+          <div class="px-4 py-3">달력뷰 매트릭스 (채널×월 7개) · 셀 클릭 드릴다운 · 호재/악재 띠 · 보기 토글</div>
+        </div>
+        <div class="grid grid-cols-[80px_1fr] gap-0 border-b hairline">
+          <div class="px-4 py-3 bg-zinc-50 text-xs ink-muted font-medium">유지</div>
+          <div class="px-4 py-3">Hero(3컬럼) · 누적 차트 · 핵심 지표(리드/매칭률/기업당) · 주간 회고 카드 · 최근 매칭 · 매칭 추가 폼</div>
+        </div>
+        <div class="grid grid-cols-[80px_1fr] gap-0">
+          <div class="px-4 py-3 bg-zinc-50 text-xs ink-muted font-medium">DB</div>
+          <div class="px-4 py-3"><code class="bg-zinc-100 px-1.5 rounded text-[12px]">matches.channel</code> 컬럼 추가 · <code class="bg-zinc-100 px-1.5 rounded text-[12px]">month_targets</code> 채널별 행 · <code class="bg-zinc-100 px-1.5 rounded text-[12px]">month_events</code> 신규 테이블</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="text-center text-xs ink-muted mt-8">목업 v4 · 데이터 가상</div>
+  </div>
+</body>
+</html>
