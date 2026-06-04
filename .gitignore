@@ -1,3 +1,8 @@
 .vercel
 .claude/
 .DS_Store
+node_modules/
+.env
+.env.local
+render-report.js
+send-test.js
