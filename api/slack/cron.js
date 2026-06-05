@@ -20,7 +20,17 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const text = await buildTeamReportText(getSb());
+    const sb = getSb();
+
+    // 안전장치: 데이터를 못 읽으면(에러/0건) 깨진 0짜리 리포트를 보내지 않고 스킵
+    const { data: matches, error } = await sb.from('matches').select('stage');
+    if (error) throw new Error('데이터 read 실패: ' + error.message);
+    if (!matches || matches.length === 0) {
+      console.warn('matches 0건 — 발송 스킵 (깨진 값 방지)');
+      return res.status(200).json({ ok: false, skipped: 'no data' });
+    }
+
+    const text = await buildTeamReportText(sb);
     const r = await fetch(process.env.SLACK_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
