@@ -5,7 +5,10 @@ let _sb;
 function getSb() {
   if (!_sb) {
     const { createClient } = require('@supabase/supabase-js');
-    _sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+    // env 붙여넣기 시 끼어든 줄바꿈/공백 제거 (JWT엔 공백이 없으므로 안전)
+    const url = (process.env.SUPABASE_URL || '').replace(/\s/g, '');
+    const key = (process.env.SUPABASE_SERVICE_KEY || '').replace(/\s/g, '');
+    _sb = createClient(url, key);
   }
   return _sb;
 }
@@ -34,6 +37,7 @@ module.exports = async function handler(req, res) {
       matches: { count: m.data ? m.data.length : null, error: m.error?.message || null },
       settings: { ok: !!s.data, error: s.error?.message || null },
       targets: { count: t.data ? t.data.length : null, error: t.error?.message || null },
+      report: await buildTeamReportText(getSb()),
     });
   }
 
