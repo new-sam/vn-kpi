@@ -16,6 +16,27 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // 진단용: ?debug=1 → 슬랙 발송 없이 env/쿼리 상태만 반환
+  if (new URL(req.url, `https://${req.headers.host}`).searchParams.get('debug') === '1') {
+    const key = process.env.SUPABASE_SERVICE_KEY || '';
+    const sb = getSb();
+    const m = await sb.from('matches').select('stage, date, company');
+    const s = await sb.from('settings').select('*').single();
+    const t = await sb.from('month_channel_targets').select('channel, target');
+    return res.status(200).json({
+      env: {
+        SUPABASE_URL: process.env.SUPABASE_URL || null,
+        SERVICE_KEY_len: key.length,
+        SERVICE_KEY_last4: key.slice(-4),
+        SERVICE_KEY_hasNewline: /\s/.test(key),
+        WEBHOOK_set: !!process.env.SLACK_WEBHOOK_URL,
+      },
+      matches: { count: m.data ? m.data.length : null, error: m.error?.message || null },
+      settings: { ok: !!s.data, error: s.error?.message || null },
+      targets: { count: t.data ? t.data.length : null, error: t.error?.message || null },
+    });
+  }
+
   try {
     const text = await buildTeamReportText(getSb());
     const r = await fetch(process.env.SLACK_WEBHOOK_URL, {
