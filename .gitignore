@@ -6,3 +6,6 @@ node_modules/
 .env.local
 render-report.js
 send-test.js
+preview-kpi.html
+index.local.html
+make-local.js

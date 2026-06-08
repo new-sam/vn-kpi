@@ -117,6 +117,11 @@
     .cell-edit:hover { background: white; box-shadow: 0 0 0 1px var(--border-strong) inset; }
     .cell-edit:has(.pill):hover { box-shadow: none; background: transparent; }
     .cell-edit:has(.pill) { cursor: pointer; }
+    .tgt-edit { cursor: pointer; border-radius: 3px; padding: 0 2px; }
+    .tgt-edit:hover { background: rgba(99,102,241,0.12); box-shadow: 0 0 0 1px rgba(99,102,241,0.45) inset; }
+    .tgt-input { width: 42px; border: 1px solid var(--border-strong); border-radius: 4px; padding: 0 3px; font-size: 12px; }
+    .vat-edit { font-size: 10px; color: var(--ink-soft); cursor: pointer; margin-top: 2px; border-radius: 3px; padding: 0 3px; display: inline-block; }
+    .vat-edit:hover { background: rgba(99,102,241,0.1); box-shadow: 0 0 0 1px rgba(99,102,241,0.4) inset; }
 
     /* Placeholder hint inside cell-edit (empty state) */
     .ph-hint { color: #d4d4d8; font-style: italic; font-weight: 400; }
@@ -184,6 +189,20 @@
     .insight.warn .ins-main { color: #d97706; }
     .insight.danger .ins-main { color: #dc2626; }
     .insight.ok .ins-main { color: #16a34a; }
+    /* 유력 패널 */
+    .fp-head { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; }
+    .fp-title { font-size:13px; font-weight:600; color:var(--ink); }
+    .fp-cnt { display:inline-block; background:#eef2ff; color:#6366f1; border-radius:999px; padding:1px 8px; font-size:11px; font-weight:600; }
+    .fp-sub { font-size:11px; color:var(--ink-muted); }
+    .fp-list { display:flex; flex-direction:column; gap:4px; }
+    .fp-item { display:grid; grid-template-columns: 1fr auto auto auto; align-items:center; gap:10px; padding:7px 10px; border:1px solid var(--border); border-radius:9px; font-size:12px; background:#fff; }
+    .fp-item.stale { background:#fef2f2; border-color:#fecaca; }
+    .fp-co { font-weight:500; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .fp-ch { font-size:10px; color:var(--ink-soft); background:#f4f4f5; border-radius:5px; padding:1px 6px; margin-left:6px; }
+    .fp-date { color:var(--ink-muted); font-variant-numeric:tabular-nums; }
+    .fp-dlabel { color:var(--ink-soft); font-size:10px; margin-right:3px; }
+    .fp-age { color:var(--ink-muted); font-variant-numeric:tabular-nums; }
+    .fp-flag { color:#dc2626; font-weight:600; font-size:11px; }
 
     /* ===== Channel mini (Hero) — 당월 목표 + 프로젝션 ===== */
     .ch-mini { padding: 12px 12px 10px; border-radius: 10px; border: 1px solid var(--border);
@@ -447,7 +466,7 @@
             <div class="text-[11px] ink-muted">연간 누적</div>
             <div class="flex items-baseline gap-2.5 text-sm">
               <span class="tnum"><b id="ktcAnnualNum">0</b><span class="ink-muted"> / <span id="ktcAnnualTarget">200</span>명</span></span>
-              <span class="pill pill-ghost tnum" id="ktcAnnualProjPill" title="확정 + 구두채용 예측">예측 0</span>
+              <span class="pill pill-ghost tnum" id="ktcAnnualProjPill" title="확정 + 유력">예측 0</span>
               <span class="pill bg-zinc-100 text-zinc-600" id="ktcGapPill">연간 0%</span>
             </div>
           </div>
@@ -524,6 +543,15 @@
             <span class="flex items-center gap-1.5"><span class="block w-4 border-t border-dashed border-zinc-400"></span>목표</span>
           </div>
           <div class="ink-muted" id="chartSummary">데이터 없음</div>
+        </div>
+
+        <!-- 유력 패널 (연간 그래프 아래) -->
+        <div id="forecastPanel" class="mt-6" style="display:none">
+          <div class="fp-head">
+            <span class="fp-title">유력 <span id="fpCount" class="fp-cnt">0</span></span>
+            <span class="fp-sub">확정 직전 · 예측에 합산됨</span>
+          </div>
+          <div id="fpList" class="fp-list"><!-- rendered by JS --></div>
         </div>
       </div>
 
@@ -610,7 +638,7 @@
             <option value="lead">단계: 리드</option>
             <option value="submitted">단계: 서류 통과</option>
             <option value="interview">단계: 인터뷰</option>
-            <option value="verbal">단계: 구두채용</option>
+            <option value="verbal">단계: 유력</option>
             <option value="confirmed">단계: 확정 매칭</option>
             <option value="dropped">단계: 드롭</option>
           </select>
@@ -1276,7 +1304,7 @@
         's.done': '완료',
         // 매칭 단계
         'stage.confirmed': '확정',
-        'stage.verbal': '구두채용',
+        'stage.verbal': '유력',
         'stage.interview': '인터뷰',
         'stage.submitted': '서류',
         'stage.lead': '리드',
@@ -1407,7 +1435,7 @@
         's.on_hold': 'Tạm hoãn',
         's.done': 'Hoàn thành',
         'stage.confirmed': 'Đã xác nhận',
-        'stage.verbal': 'Hứa miệng',
+        'stage.verbal': 'Giai đoạn cuối',
         'stage.interview': 'Phỏng vấn',
         'stage.submitted': 'Hồ sơ',
         'stage.lead': 'Lead',
@@ -1572,7 +1600,7 @@
       9:  [{ kind:'good', label:'호치민 매칭위크', sub:'한국 하반기 채용' }],
       11: [{ kind:'good', label:'하노이 매칭위크' }]
     };
-    const MATRIX_MONTHS = [5,6,7,8,9,10,11];
+    const MATRIX_MONTHS = [4,5,6,7,8,9,10,11];
 
     // ────────────────────────────────────────────
     // STATE
@@ -1839,7 +1867,7 @@
 
     const matchesYear = () => state.matches.filter(m => inYear(m));
     const annualMatches = () => state.matches.filter(m => m.stage === 'confirmed' && inYear(m)).length;  // 200명 카운트 (소스 무관)
-    const annualVerbal  = () => state.matches.filter(m => m.stage === 'verbal'    && inYear(m)).length;  // 연간 예측용: 열린 구두 (월 무관)
+    const openVerbal    = () => state.matches.filter(m => m.stage === 'verbal').length;  // 예측용: 지금 열린 막바지(구두) 전체 — 월·연 공통
     const yearLeads = () => state.matches.filter(m => m.source === '웍스피어' && (m.date||'').startsWith(String(state.year))).length;  // 리드 분모: 등록일 기준
     const wspConfirmed = () => state.matches.filter(m => m.source === '웍스피어' && m.stage === 'confirmed' && inYear(m)).length;  // 전환율 분자
     const yearMatchedCompanies = () => new Set(state.matches.filter(m => m.stage === 'confirmed' && inYear(m)).map(m => m.company)).size;
@@ -1964,6 +1992,34 @@
       }
     }
 
+    const STALE_DAYS = 30;
+    function renderForecastPanel() {
+      const panel = $('#forecastPanel');
+      if (!panel) return;
+      const chLabel = {}; CHANNELS.forEach(c => chLabel[c.key] = c.label);
+      const today = state.today;
+      const items = state.matches
+        .filter(m => m.stage === 'verbal')
+        .map(m => {
+          const vat = m.verbal_at || m.date;
+          const age = vat ? Math.round((new Date(today) - new Date(vat)) / 86400000) : 0;
+          return { co: m.company || '(미정)', ch: chLabel[channelOf(m)] || channelOf(m), vat, age, stale: age > STALE_DAYS };
+        })
+        .sort((a, b) => b.age - a.age);
+      const cntEl = $('#fpCount'); if (cntEl) cntEl.textContent = `${items.length}건`;
+      if (items.length === 0) { panel.style.display = 'none'; return; }
+      panel.style.display = '';
+      const fmt = d => (d || '').slice(5).replace('-', '/');
+      const listEl = $('#fpList');
+      if (listEl) listEl.innerHTML = items.map(it => `
+        <div class="fp-item${it.stale ? ' stale' : ''}">
+          <span class="fp-co">${it.co}<span class="fp-ch">${it.ch}</span></span>
+          <span class="fp-date"><span class="fp-dlabel">전환</span>${fmt(it.vat)}</span>
+          <span class="fp-age">D+${it.age}</span>
+          <span class="fp-flag">${it.stale ? '⚠️ 지연' : ''}</span>
+        </div>`).join('');
+    }
+
     function renderKTCHero() {
       // 목표 편집은 모든 인원 가능 — 버튼 항상 노출
       const targetBtn = $('#targetEditBtn');
@@ -1980,15 +2036,16 @@
       }
       $('#tabKtcBadge').textContent = `${total}/${target}`;
 
-      // ── 연간 예측 (확정 + 열린 구두채용) — 실측과 구분되는 파생값 ──
+      // ── 연간 예측 (확정 + 열린 유력) — 실측과 구분되는 파생값 ──
       const projPillA = $('#ktcAnnualProjPill');
       if (projPillA) {
-        const vb = annualVerbal();
+        const vb = openVerbal();
         const proj = total + vb;
         projPillA.textContent = `예측 ${proj}`;
-        projPillA.title = `확정 ${total} + 구두 ${vb} = ${proj}명 (예측)`;
-        projPillA.style.display = vb > 0 ? '' : 'none';  // 구두 없으면 숨김
+        projPillA.title = `확정 ${total} + 유력 ${vb} = ${proj}명 (예측)`;
+        projPillA.style.display = vb > 0 ? '' : 'none';  // 유력 없으면 숨김
       }
+      renderForecastPanel();
       const navYW = $('#navYearWeek');
       if (navYW) navYW.textContent = `${state.year} · W${state.currentWeek}`;
 
@@ -2043,7 +2100,6 @@
       const cm = state.currentMonth;
       const cmTarget = monthTargetFor(state.year, cm);
       const cmDone = monthMatchesConfirmed(state.year, cm);
-      const cmVerbal = monthMatchesVerbal(state.year, cm);
       $('#ktcMonthVal').textContent = cmDone;
       $('#ktcMonthTarget').textContent = cmTarget;
       $('#ktcMonthNo').textContent = `${cm}월`;
@@ -2065,12 +2121,13 @@
         if (monthValEl) monthValEl.classList.add(numCls);
       }
 
-      // ── 이번 달 예측 (확정 + 구두채용) ──
-      const projVal = cmDone + cmVerbal;
+      // ── 이번 달 예측 (확정 + 지금 열린 막바지 전체) ──
+      const vbOpen = openVerbal();
+      const projVal = cmDone + vbOpen;
       const projMoNo = $('#ktcProjMonthNo'); if (projMoNo) projMoNo.textContent = `${cm}월`;
       const projValEl = $('#ktcProjVal');     if (projValEl) projValEl.textContent = projVal;
       const projTgtEl = $('#ktcProjTarget');   if (projTgtEl) projTgtEl.textContent = cmTarget;
-      const projBd    = $('#ktcProjBreakdown'); if (projBd) projBd.textContent = `확정 ${cmDone} + 구두 ${cmVerbal}`;
+      const projBd    = $('#ktcProjBreakdown'); if (projBd) projBd.textContent = `확정 ${cmDone} + 유력 ${vbOpen}`;
       const projPill  = $('#ktcProjPill');
       if (projPill) {
         if (cmTarget === 0) {
@@ -2235,6 +2292,18 @@
       const t = state.channelMonthTargets;
       return (t && t[ch] && t[ch][m]) || 0;
     }
+    async function saveChannelMonthTarget(ch, m, v) {
+      if (!state.channelMonthTargets) state.channelMonthTargets = {};
+      if (!state.channelMonthTargets[ch]) state.channelMonthTargets[ch] = {};
+      state.channelMonthTargets[ch][m] = v;
+      if (sb && state.user) {
+        const { error } = await sb.from('month_channel_targets')
+          .upsert({ year: state.year, month: m, channel: ch, target: v }, { onConflict: 'year,month,channel' });
+        if (error) { alert('목표 저장 실패: ' + error.message); }
+      }
+      save();
+      renderAllPreserve();
+    }
     function chMonthConfirmed(ch, year, m) {
       const ym = `${year}-${String(m).padStart(2,'0')}`;
       return state.matches.filter(x => x.stage === 'confirmed' && inYM(x, ym) && channelOf(x) === ch).length;
@@ -2339,7 +2408,7 @@
       const todayStr = state.today || new Date().toISOString().slice(0,10);
       const monthCells = MATRIX_MONTHS.map(m => {
         const isCur = m === cm;
-        const meta = isCur ? `${todayStr.slice(8,10)}/${new Date(year, m, 0).getDate()}일` : '예정';
+        const meta = isCur ? `${todayStr.slice(8,10)}/${new Date(year, m, 0).getDate()}일` : (m < cm ? '완료' : '예정');
         return `<th class="mo-h${isCur?' current':''}"><div class="mo-name">${m}월</div><div class="mo-meta">${meta}</div></th>`;
       }).join('');
 
@@ -2352,9 +2421,10 @@
         const cls = heatClass(pct, isFuture);
         const dataAttr = (ch === 'all') ? '' : `data-ch="${ch}" data-month="${m}"`;
         const pctTxt = isFuture ? `${pct}` : `${pct}`;
+        const tgtHtml = (ch === 'all') ? `${target}` : `<span class="tgt-edit" data-tch="${ch}" data-tm="${m}" title="목표 클릭→수정">${target}</span>`;
         return `<td class="dc"><div class="cell ${cls}" ${dataAttr}>
           <div class="pct-big tnum">${pctTxt}<span class="pct-unit">%</span></div>
-          <div class="sub tnum">${actual} / ${target}</div>
+          <div class="sub tnum">${actual} / ${tgtHtml}</div>
           <div class="mini-bar"><span style="width:${Math.min(100,pct)}%"></span></div>
         </div></td>`;
       };
@@ -2419,9 +2489,39 @@
         el.addEventListener('click', () => {
           const ch = el.getAttribute('data-ch');
           const mo = parseInt(el.getAttribute('data-month'), 10);
+          const wasActive = el.classList.contains('active');
           wrap.querySelectorAll('.cell.active').forEach(x => x.classList.remove('active'));
+          const drill = $('#matrixDrill');
+          if (wasActive) { if (drill) drill.classList.add('hidden'); return; }  // 재클릭 → 닫기(토글)
           el.classList.add('active');
           renderMatrixDrill(ch, mo);
+        });
+      });
+
+      // 목표 인라인 편집 (셀 drill 클릭과 분리)
+      wrap.querySelectorAll('.tgt-edit').forEach(el => {
+        el.addEventListener('click', ev => {
+          ev.stopPropagation();
+          if (el.querySelector('input')) return;
+          const ch = el.dataset.tch, m = parseInt(el.dataset.tm, 10);
+          const cur = chMonthTarget(ch, m);
+          const input = document.createElement('input');
+          input.type = 'number'; input.min = '0'; input.value = cur;
+          input.className = 'tgt-input tnum';
+          el.textContent = ''; el.appendChild(input);
+          input.focus({ preventScroll: true }); input.select();
+          let done = false;
+          const commit = async () => {
+            if (done) return; done = true;
+            const n = parseInt(input.value, 10);
+            if (!isNaN(n) && n >= 0 && n !== cur) await saveChannelMonthTarget(ch, m, n);
+            else renderAllPreserve();
+          };
+          input.addEventListener('blur', commit);
+          input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            if (e.key === 'Escape') { e.preventDefault(); done = true; renderAllPreserve(); }
+          });
         });
       });
     }
@@ -2435,7 +2535,7 @@
       const items = state.matches
         .filter(x => inYM(x, ym) && channelOf(x) === ch)
         .sort((a,b) => (effDate(b)||'').localeCompare(effDate(a)||''));
-      const stageLabel = s => ({lead:'리드', submitted:'서류통과', interview:'인터뷰', verbal:'구두채용', confirmed:'확정', dropped:'드롭'}[s] || s);
+      const stageLabel = s => ({lead:'리드', submitted:'서류통과', interview:'인터뷰', verbal:'유력', confirmed:'확정', dropped:'드롭'}[s] || s);
       const stagePill = s => {
         if (s === 'confirmed') return '<span class="pill bg-emerald-50 text-emerald-700">확정</span>';
         if (s === 'dropped')   return '<span class="pill bg-zinc-100 text-zinc-500">드롭</span>';
@@ -2748,7 +2848,7 @@
       ['lead', '리드'],
       ['submitted', '서류 통과'],
       ['interview', '인터뷰'],
-      ['verbal', '구두채용'],
+      ['verbal', '유력'],
       ['confirmed', '확정 매칭'],
       ['dropped', '드롭']
     ];
@@ -2981,7 +3081,10 @@
               <span data-cell="role" class="cell-edit truncate" title="클릭하여 수정">${escapeHtml(m.role||'—')}</span>
             </div>
             <div data-cell="source" class="cell-edit" title="클릭하여 수정">${sourcePill(m.source)}</div>
-            <div data-cell="stage" class="cell-edit text-center" title="클릭하여 수정">${stagePill(m.stage)}</div>
+            <div class="text-center">
+              <div data-cell="stage" class="cell-edit" title="클릭하여 수정">${stagePill(m.stage)}</div>
+              ${m.stage === 'verbal' ? `<div class="vat-edit" data-mid="${m.id}" title="유력 전환일 · 클릭하여 수정">전환 ${fmtDate(m.verbal_at || m.date)}</div>` : ''}
+            </div>
             <div data-cell="note" class="cell-edit ink-soft text-xs truncate text-center" title="클릭하여 특이사항 입력">${m.note ? escapeHtml(m.note) : '<span class="ink-muted">—</span>'}</div>
             <button data-dup-match="${m.id}" class="text-zinc-300 hover:text-zinc-700 text-xs" title="행 복사">⎘</button>
             <button data-delete-match="${m.id}" class="text-zinc-300 hover:text-red-500 text-xs" title="삭제">✕</button>
@@ -3047,6 +3150,42 @@
           const row = cell.closest('[data-match-id]');
           if (!row) return;
           enableCellEdit(cell, row.dataset.matchId, cell.dataset.cell);
+        });
+      });
+      // 유력 전환일(verbal_at) 인라인 표시 + 수정
+      $$('#recentMatches .vat-edit').forEach(cell => {
+        cell.addEventListener('click', e => {
+          e.stopPropagation();
+          if (cell.querySelector('input')) return;
+          const mid = cell.dataset.mid;
+          const m = state.matches.find(x => x.id === mid);
+          if (!m) return;
+          const cur = m.verbal_at || m.date || '';
+          const input = document.createElement('input');
+          input.type = 'date'; input.value = cur;
+          input.className = 'border hairline rounded px-1 py-0.5 text-xs';
+          cell.innerHTML = ''; cell.appendChild(input);
+          input.focus({ preventScroll: true });
+          let done = false;
+          const commit = async () => {
+            if (done) return; done = true;
+            const v = (input.value || '').trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v !== cur) {
+              const update = { verbal_at: v };
+              if (sb && state.user) {
+                const { data, error } = await sb.from('matches').update(update).eq('id', mid).select().single();
+                if (error) { alert('전환일 수정 실패: ' + error.message); renderAllPreserve(); return; }
+                Object.assign(m, data);
+              } else { Object.assign(m, update); }
+              save();
+            }
+            renderAllPreserve();
+          };
+          input.addEventListener('blur', commit);
+          input.addEventListener('keydown', ev => {
+            if (ev.key === 'Enter') { ev.preventDefault(); input.blur(); }
+            if (ev.key === 'Escape') { ev.preventDefault(); done = true; renderAllPreserve(); }
+          });
         });
       });
       // wire inline + add
