@@ -447,6 +447,7 @@
             <div class="text-[11px] ink-muted">연간 누적</div>
             <div class="flex items-baseline gap-2.5 text-sm">
               <span class="tnum"><b id="ktcAnnualNum">0</b><span class="ink-muted"> / <span id="ktcAnnualTarget">200</span>명</span></span>
+              <span class="pill pill-ghost tnum" id="ktcAnnualProjPill" title="확정 + 구두채용 예측">예측 0</span>
               <span class="pill bg-zinc-100 text-zinc-600" id="ktcGapPill">연간 0%</span>
             </div>
           </div>
@@ -1838,6 +1839,7 @@
 
     const matchesYear = () => state.matches.filter(m => inYear(m));
     const annualMatches = () => state.matches.filter(m => m.stage === 'confirmed' && inYear(m)).length;  // 200명 카운트 (소스 무관)
+    const annualVerbal  = () => state.matches.filter(m => m.stage === 'verbal'    && inYear(m)).length;  // 연간 예측용: 열린 구두 (월 무관)
     const yearLeads = () => state.matches.filter(m => m.source === '웍스피어' && (m.date||'').startsWith(String(state.year))).length;  // 리드 분모: 등록일 기준
     const wspConfirmed = () => state.matches.filter(m => m.source === '웍스피어' && m.stage === 'confirmed' && inYear(m)).length;  // 전환율 분자
     const yearMatchedCompanies = () => new Set(state.matches.filter(m => m.stage === 'confirmed' && inYear(m)).map(m => m.company)).size;
@@ -1977,6 +1979,16 @@
         annualEdit.textContent = target;
       }
       $('#tabKtcBadge').textContent = `${total}/${target}`;
+
+      // ── 연간 예측 (확정 + 열린 구두채용) — 실측과 구분되는 파생값 ──
+      const projPillA = $('#ktcAnnualProjPill');
+      if (projPillA) {
+        const vb = annualVerbal();
+        const proj = total + vb;
+        projPillA.textContent = `예측 ${proj}`;
+        projPillA.title = `확정 ${total} + 구두 ${vb} = ${proj}명 (예측)`;
+        projPillA.style.display = vb > 0 ? '' : 'none';  // 구두 없으면 숨김
+      }
       const navYW = $('#navYearWeek');
       if (navYW) navYW.textContent = `${state.year} · W${state.currentWeek}`;
 
