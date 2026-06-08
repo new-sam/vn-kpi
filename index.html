@@ -203,6 +203,8 @@
     .fp-dlabel { color:var(--ink-soft); font-size:10px; margin-right:3px; }
     .fp-age { color:var(--ink-muted); font-variant-numeric:tabular-nums; }
     .fp-flag { color:#dc2626; font-weight:600; font-size:11px; }
+    .fp-more { margin-top:6px; align-self:flex-start; background:#f4f4f5; border:1px solid var(--border); border-radius:8px; padding:5px 12px; font-size:12px; color:var(--ink-soft); cursor:pointer; }
+    .fp-more:hover { background:#ececf0; color:var(--ink); }
 
     /* ===== Channel mini (Hero) — 당월 목표 + 프로젝션 ===== */
     .ch-mini { padding: 12px 12px 10px; border-radius: 10px; border: 1px solid var(--border);
@@ -2010,14 +2012,31 @@
       if (items.length === 0) { panel.style.display = 'none'; return; }
       panel.style.display = '';
       const fmt = d => (d || '').slice(5).replace('-', '/');
-      const listEl = $('#fpList');
-      if (listEl) listEl.innerHTML = items.map(it => `
+      const itemHtml = it => `
         <div class="fp-item${it.stale ? ' stale' : ''}">
           <span class="fp-co">${it.co}<span class="fp-ch">${it.ch}</span></span>
           <span class="fp-date"><span class="fp-dlabel">전환</span>${fmt(it.vat)}</span>
           <span class="fp-age">D+${it.age}</span>
           <span class="fp-flag">${it.stale ? '⚠️ 지연' : ''}</span>
-        </div>`).join('');
+        </div>`;
+      const HEAD = 5;
+      const head = items.slice(0, HEAD);
+      const rest = items.slice(HEAD);
+      const listEl = $('#fpList');
+      if (!listEl) return;
+      let html = head.map(itemHtml).join('');
+      if (rest.length) {
+        html += `<div id="fpRest" class="fp-list" style="display:none">${rest.map(itemHtml).join('')}</div>`;
+        html += `<button id="fpMore" class="fp-more" type="button">더보기 ${rest.length}개 ▾</button>`;
+      }
+      listEl.innerHTML = html;
+      const moreBtn = $('#fpMore');
+      if (moreBtn) moreBtn.addEventListener('click', () => {
+        const r = $('#fpRest');
+        const open = r.style.display !== 'none';
+        r.style.display = open ? 'none' : 'flex';
+        moreBtn.textContent = open ? `더보기 ${rest.length}개 ▾` : '접기 ▴';
+      });
     }
 
     function renderKTCHero() {
