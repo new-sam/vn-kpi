@@ -9,11 +9,13 @@ function kstNow() {
     m: d.getUTCMonth() + 1,
     day: d.getUTCDate(),
     dow: ['일', '월', '화', '수', '목', '금', '토'][d.getUTCDay()],
+    hh: String(d.getUTCHours()).padStart(2, '0'),
+    mm: String(d.getUTCMinutes()).padStart(2, '0'),
   };
 }
 
 async function buildTeamReportText(sb) {
-  const { y, m, day, dow } = kstNow();
+  const { y, m, day, dow, hh, mm } = kstNow();
   const ym = `${y}-${String(m).padStart(2, '0')}`;
 
   const [{ data: matches }, { data: settings }, { data: mct }] = await Promise.all([
@@ -44,6 +46,7 @@ async function buildTeamReportText(sb) {
 
   const L = [];
   L.push(`📊 *${m}/${day} (${dow}) VN KPI 데일리*`);
+  L.push(`_⏱ ${hh}:${mm} 기준 · 실시간 최신값은 대시보드_`);
   L.push('');
   L.push(`*1. 연간 진도율* :  *${annualPct}%*  (${annualConfirmed}/${annualTarget})`);
   L.push(`*2. ${m}월 진도율* :  *${monthPct}%*  (${monthConfirmed}/${monthTarget})`);
