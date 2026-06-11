@@ -122,6 +122,8 @@
     .tgt-input { width: 42px; border: 1px solid var(--border-strong); border-radius: 4px; padding: 0 3px; font-size: 12px; }
     .vat-edit { font-size: 10px; color: var(--ink-soft); cursor: pointer; margin-top: 2px; border-radius: 3px; padding: 0 3px; display: inline-block; }
     .vat-edit:hover { background: rgba(99,102,241,0.1); box-shadow: 0 0 0 1px rgba(99,102,241,0.4) inset; }
+    .vat-edit.cat { color: #16a34a; }
+    .vat-edit.cat:hover { background: rgba(22,163,74,0.1); box-shadow: 0 0 0 1px rgba(22,163,74,0.4) inset; }
 
     /* Placeholder hint inside cell-edit (empty state) */
     .ph-hint { color: #d4d4d8; font-style: italic; font-weight: 400; }
@@ -3102,7 +3104,8 @@
             <div data-cell="source" class="cell-edit" title="클릭하여 수정">${sourcePill(m.source)}</div>
             <div class="text-center">
               <div data-cell="stage" class="cell-edit" title="클릭하여 수정">${stagePill(m.stage)}</div>
-              ${m.stage === 'verbal' ? `<div class="vat-edit" data-mid="${m.id}" title="유력 전환일 · 클릭하여 수정">전환 ${fmtDate(m.verbal_at || m.date)}</div>` : ''}
+              ${m.stage === 'verbal' ? `<div class="vat-edit" data-mid="${m.id}" data-field="verbal_at" title="유력 전환일 · 클릭하여 수정">전환 ${fmtDate(m.verbal_at || m.date)}</div>` : ''}
+              ${m.stage === 'confirmed' ? `<div class="vat-edit cat" data-mid="${m.id}" data-field="confirmed_at" title="확정일 · 이 달 KPI에 반영 · 클릭하여 수정">확정 ${fmtDate(m.confirmed_at || m.date)}</div>` : ''}
             </div>
             <div data-cell="note" class="cell-edit ink-soft text-xs truncate text-center" title="클릭하여 특이사항 입력">${m.note ? escapeHtml(m.note) : '<span class="ink-muted">—</span>'}</div>
             <button data-dup-match="${m.id}" class="text-zinc-300 hover:text-zinc-700 text-xs" title="행 복사">⎘</button>
@@ -3177,9 +3180,10 @@
           e.stopPropagation();
           if (cell.querySelector('input')) return;
           const mid = cell.dataset.mid;
+          const field = cell.dataset.field || 'verbal_at';
           const m = state.matches.find(x => x.id === mid);
           if (!m) return;
-          const cur = m.verbal_at || m.date || '';
+          const cur = m[field] || m.date || '';
           const input = document.createElement('input');
           input.type = 'date'; input.value = cur;
           input.className = 'border hairline rounded px-1 py-0.5 text-xs';
@@ -3190,10 +3194,10 @@
             if (done) return; done = true;
             const v = (input.value || '').trim();
             if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v !== cur) {
-              const update = { verbal_at: v };
+              const update = { [field]: v };
               if (sb && state.user) {
                 const { data, error } = await sb.from('matches').update(update).eq('id', mid).select().single();
-                if (error) { alert('전환일 수정 실패: ' + error.message); renderAllPreserve(); return; }
+                if (error) { alert('날짜 수정 실패: ' + error.message); renderAllPreserve(); return; }
                 Object.assign(m, data);
               } else { Object.assign(m, update); }
               save();
