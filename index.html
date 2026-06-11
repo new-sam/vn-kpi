@@ -124,6 +124,11 @@
     .vat-edit:hover { background: rgba(99,102,241,0.1); box-shadow: 0 0 0 1px rgba(99,102,241,0.4) inset; }
     .vat-edit.cat { color: #16a34a; }
     .vat-edit.cat:hover { background: rgba(22,163,74,0.1); box-shadow: 0 0 0 1px rgba(22,163,74,0.4) inset; }
+    .row-ltm { font-size: 10px; color: var(--ink-muted); margin-top: 1px; }
+    .dod { font-size: 12px; font-weight: 600; margin-left: 6px; vertical-align: middle; white-space: nowrap; }
+    .dod.up { color: #16a34a; }
+    .dod.down { color: #dc2626; }
+    .dod.flat { color: #a1a1aa; font-weight: 500; }
 
     /* Placeholder hint inside cell-edit (empty state) */
     .ph-hint { color: #d4d4d8; font-style: italic; font-weight: 400; }
@@ -662,15 +667,15 @@
       <details class="border-t hairline" open>
         <summary class="py-4 flex items-center gap-2 text-sm font-medium">
           <span class="chev">›</span> 핵심 지표
-          <span class="ink-muted text-xs font-normal ml-1">리드 · 최종 매칭률 · 기업당 매칭</span>
+          <span class="ink-muted text-xs font-normal ml-1">리드 · 최종 매칭률 · 기업당 매칭 · 리드타임</span>
         </summary>
-        <div class="pb-6 pt-2 grid grid-cols-3 gap-4">
+        <div class="pb-6 pt-2 grid grid-cols-2 lg:grid-cols-4 gap-4">
 
           <!-- 1. 리드 -->
           <div class="p-4 rounded-lg border hairline bg-white">
             <div class="text-xs ink-muted mb-1">리드</div>
             <div class="text-[10px] ink-muted mb-3">웍스피어가 데려온 기업</div>
-            <div class="text-3xl font-semibold tnum"><span id="metricLeads">0</span><span class="text-base ink-muted ml-1">개사</span></div>
+            <div class="text-3xl font-semibold tnum"><span id="metricLeads">0</span><span class="text-base ink-muted ml-1">개사</span><span id="metricLeadsDod" class="dod"></span></div>
             <div class="text-[11px] ink-muted mt-2" id="metricLeadsDetail">웍스피어 인입 누적</div>
           </div>
 
@@ -678,7 +683,7 @@
           <div class="p-4 rounded-lg border hairline bg-white">
             <div class="text-xs ink-muted mb-1">최종 매칭률</div>
             <div class="text-[10px] ink-muted mb-3">매칭 ÷ 리드</div>
-            <div class="text-3xl font-semibold tnum text-emerald-600"><span id="metricMatchRate">0</span><span class="text-base">%</span></div>
+            <div class="text-3xl font-semibold tnum text-emerald-600"><span id="metricMatchRate">0</span><span class="text-base">%</span><span id="metricMatchRateDod" class="dod"></span></div>
             <div class="bar mt-2" style="height: 3px"><span id="metricMatchRateBar" style="width: 0%; background: #10b981;"></span></div>
             <div class="text-[11px] ink-muted mt-2" id="metricMatchRateDetail">0 / 0 · 목표 33%</div>
           </div>
@@ -687,8 +692,17 @@
           <div class="p-4 rounded-lg border hairline bg-white">
             <div class="text-xs ink-muted mb-1">기업당 매칭</div>
             <div class="text-[10px] ink-muted mb-3">매칭 ÷ 매칭 성사 기업</div>
-            <div class="text-3xl font-semibold tnum"><span id="metricPerCompany">0</span><span class="text-base ink-muted ml-1">명</span></div>
+            <div class="text-3xl font-semibold tnum"><span id="metricPerCompany">0</span><span class="text-base ink-muted ml-1">명</span><span id="metricPerCompanyDod" class="dod"></span></div>
             <div class="text-[11px] ink-muted mt-2" id="metricPerCompanyDetail">0매칭 / 0기업</div>
+          </div>
+
+          <!-- 4. 평균 리드타임 (클릭 → 상세 토글) -->
+          <div id="ltCard" class="p-4 rounded-lg border hairline bg-white" style="cursor:pointer" title="클릭하여 상세 보기">
+            <div class="text-xs ink-muted mb-1">평균 리드타임 <span id="ltArrow" class="ink-muted">▾</span></div>
+            <div class="text-[10px] ink-muted mb-3">전체 · 드랍 제외 (일)</div>
+            <div class="text-3xl font-semibold tnum"><span id="metricLeadTime">0</span><span class="text-base ink-muted ml-1">일</span><span id="metricLeadTimeDod" class="dod"></span></div>
+            <div class="text-[11px] ink-muted mt-2" id="metricLeadTimeDetail">확정 0일 · 진행중 0일</div>
+            <div id="ltDetail" class="mt-3 pt-3 border-t hairline" style="display:none"></div>
           </div>
 
         </div>
@@ -1877,6 +1891,10 @@
     const yearMatchedCompanies = () => new Set(state.matches.filter(m => m.stage === 'confirmed' && inYear(m)).map(m => m.company)).size;
     const matchRate = () => yearLeads() ? +(wspConfirmed()/yearLeads()*100).toFixed(1) : 0;  // 웍스피어 funnel only
     const perCompany = () => yearMatchedCompanies() ? +(annualMatches()/yearMatchedCompanies()).toFixed(1) : 0;
+    // 확정 리드타임 = 확정일 − 리드발생일 / 진행중 경과 = 오늘 − 리드발생일
+    const leadTimeDays = (m) => (m.confirmed_at && m.date) ? Math.max(0, Math.round((new Date(m.confirmed_at) - new Date(m.date)) / 86400000)) : null;
+    const elapsedDays  = (m) => m.date ? Math.max(0, Math.round((new Date(state.today) - new Date(m.date)) / 86400000)) : null;
+    let ltExpanded = false;  // 리드타임 카드 상세 토글
 
     function weekDataFor(w) {
       const data = { submitted: 0, interview: 0, verbal: 0, confirmed: 0, lead: 0, dropped: 0 };
@@ -2844,9 +2862,73 @@
       $('#metricLeads').textContent = yearLeads();
       $('#metricMatchRate').textContent = matchRate();
       $('#metricMatchRateBar').style.width = `${matchRate()}%`;
-      $('#metricMatchRateDetail').textContent = `${annualMatches()} / ${yearLeads()} · 목표 33%`;
+      $('#metricMatchRateDetail').textContent = `${wspConfirmed()} / ${yearLeads()} · 목표 33%`;
       $('#metricPerCompany').textContent = perCompany();
       $('#metricPerCompanyDetail').textContent = `${annualMatches()}매칭 / ${yearMatchedCompanies()}기업`;
+
+      // DoD 증감 (어제 시점 값을 데이터로 재계산해 비교)
+      const yest = (() => { const d = new Date(state.today); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
+      const yS = String(state.year);
+      const leadsAsOf = d => state.matches.filter(m => m.source === '웍스피어' && (m.date || '').startsWith(yS) && (m.date || '') <= d).length;
+      const wspConfAsOf = d => state.matches.filter(m => m.source === '웍스피어' && m.stage === 'confirmed' && (effDate(m) || '').startsWith(yS) && (effDate(m) || '') <= d).length;
+      const rateAsOf = d => { const L = leadsAsOf(d); return L ? +(wspConfAsOf(d) / L * 100).toFixed(1) : 0; };
+      const confAsOf = d => state.matches.filter(m => m.stage === 'confirmed' && (effDate(m) || '').startsWith(yS) && (effDate(m) || '') <= d);
+      const perCoAsOf = d => { const c = confAsOf(d); const co = new Set(c.map(m => (m.company || '').trim()).filter(Boolean)).size; return co ? +(c.length / co).toFixed(1) : 0; };
+      const setDod = (id, delta, unit, dec, goodIsDown) => {
+        const el = $(id); if (!el) return;
+        const r = +(delta).toFixed(dec);
+        let cls = 'flat';
+        if (r > 0) cls = goodIsDown ? 'down' : 'up';
+        else if (r < 0) cls = goodIsDown ? 'up' : 'down';
+        el.className = 'dod ' + cls;
+        el.title = '전일 대비(DoD)';
+        el.textContent = (r > 0 ? '▲' : r < 0 ? '▼' : '±') + Math.abs(r).toFixed(dec) + unit;
+      };
+      // 리드타임 전일 대비 (전체 평균을 어제 시점으로 재계산)
+      const ltAsOf = D => {
+        const confs = state.matches.filter(m => m.stage === 'confirmed' && (effDate(m) || '').startsWith(yS) && m.confirmed_at && m.date && m.confirmed_at <= D)
+          .map(m => Math.max(0, Math.round((new Date(m.confirmed_at) - new Date(m.date)) / 86400000)));
+        const opens = state.matches.filter(m => m.date && m.date <= D && m.stage !== 'dropped' && !(m.stage === 'confirmed' && m.confirmed_at && m.confirmed_at <= D))
+          .map(m => Math.max(0, Math.round((new Date(D) - new Date(m.date)) / 86400000)));
+        const all = confs.concat(opens);
+        return all.length ? Math.round(all.reduce((a, b) => a + b, 0) / all.length) : 0;
+      };
+      setDod('#metricLeadsDod', leadsAsOf(state.today) - leadsAsOf(yest), '', 0);
+      setDod('#metricMatchRateDod', rateAsOf(state.today) - rateAsOf(yest), '%p', 1);
+      setDod('#metricPerCompanyDod', perCoAsOf(state.today) - perCoAsOf(yest), '', 1);
+      setDod('#metricLeadTimeDod', ltAsOf(state.today) - ltAsOf(yest), '일', 0, true);
+      // 리드타임: 전체(드랍 제외) 대표값 + 클릭 토글 상세(확정/진행중 × 채널)
+      const avgOf = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : null;
+      const confDeals = state.matches.filter(m => m.stage === 'confirmed' && inYear(m) && leadTimeDays(m) != null);
+      const openDeals = state.matches.filter(m => !['confirmed', 'dropped'].includes(m.stage) && m.date);
+      const confLT = confDeals.map(leadTimeDays);
+      const openLT = openDeals.map(elapsedDays);
+      const ltEl = $('#metricLeadTime'); if (ltEl) ltEl.textContent = avgOf(confLT.concat(openLT)) ?? 0;
+      const ltD = $('#metricLeadTimeDetail'); if (ltD) ltD.textContent = `확정 ${avgOf(confLT) ?? '—'}일 · 진행중 ${avgOf(openLT) ?? '—'}일`;
+      const chBreak = (deals, fn) => CHANNELS.map(c => {
+        const ds = deals.filter(m => channelOf(m) === c.key).map(fn);
+        return ds.length ? `${c.label} ${avgOf(ds)}일(${ds.length})` : `${c.label} —`;
+      }).join(' · ');
+      const ltDetailEl = $('#ltDetail');
+      if (ltDetailEl) {
+        ltDetailEl.innerHTML = `<div style="font-size:11px;line-height:1.55">
+            <div><b>✅ 확정</b> ${confDeals.length}건 · 평균 ${avgOf(confLT) ?? '—'}일</div>
+            <div class="ink-muted" style="margin:1px 0 7px">${chBreak(confDeals, leadTimeDays)}</div>
+            <div><b>⏳ 진행중</b> ${openDeals.length}건 · 평균 ${avgOf(openLT) ?? '—'}일 <span class="ink-muted">(매일 +1)</span></div>
+            <div class="ink-muted" style="margin-top:1px">${chBreak(openDeals, elapsedDays)}</div>
+          </div>`;
+        ltDetailEl.style.display = ltExpanded ? 'block' : 'none';
+      }
+      const ltArrow = $('#ltArrow'); if (ltArrow) ltArrow.textContent = ltExpanded ? '▴' : '▾';
+      const ltCard = $('#ltCard');
+      if (ltCard && !ltCard.dataset.wired) {
+        ltCard.dataset.wired = '1';
+        ltCard.addEventListener('click', () => {
+          ltExpanded = !ltExpanded;
+          const d = $('#ltDetail'); if (d) d.style.display = ltExpanded ? 'block' : 'none';
+          const a = $('#ltArrow'); if (a) a.textContent = ltExpanded ? '▴' : '▾';
+        });
+      }
     }
 
     function sourcePill(source) {
@@ -3106,6 +3188,8 @@
               <div data-cell="stage" class="cell-edit" title="클릭하여 수정">${stagePill(m.stage)}</div>
               ${m.stage === 'verbal' ? `<div class="vat-edit" data-mid="${m.id}" data-field="verbal_at" title="유력 전환일 · 클릭하여 수정">전환 ${fmtDate(m.verbal_at || m.date)}</div>` : ''}
               ${m.stage === 'confirmed' ? `<div class="vat-edit cat" data-mid="${m.id}" data-field="confirmed_at" title="확정일 · 이 달 KPI에 반영 · 클릭하여 수정">확정 ${fmtDate(m.confirmed_at || m.date)}</div>` : ''}
+              ${m.stage === 'confirmed' && leadTimeDays(m) != null ? `<div class="row-ltm">리드타임 ${leadTimeDays(m)}일</div>` : ''}
+              ${!['confirmed', 'dropped'].includes(m.stage) && m.date ? `<div class="row-ltm">경과 ${elapsedDays(m)}일</div>` : ''}
             </div>
             <div data-cell="note" class="cell-edit ink-soft text-xs truncate text-center" title="클릭하여 특이사항 입력">${m.note ? escapeHtml(m.note) : '<span class="ink-muted">—</span>'}</div>
             <button data-dup-match="${m.id}" class="text-zinc-300 hover:text-zinc-700 text-xs" title="행 복사">⎘</button>
