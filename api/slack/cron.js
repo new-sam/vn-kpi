@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ ok: false, skipped: 'no data' });
     }
 
-    const text = await buildTeamReportText(sb);
+    const text = await buildTeamReportText(sb, { persist: true });
     const r = await fetch(process.env.SLACK_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
